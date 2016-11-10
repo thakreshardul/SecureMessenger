@@ -2,13 +2,14 @@ from keychain import ClientKeyChain
 from message import MessageGenerator
 from network import *
 
+udp = Udp("127.0.0.1", 5000, 1)
 
 class ChatClient:
     def __init__(self, sip, sport):
         self.sip = sip
         self.sport = sport
         self.keychain = ClientKeyChain(65537, 2048)
-        self.socket = create_socket()
+        self.socket = udp.socket
         self.msg_gen = MessageGenerator(self.keychain.public_key,
                                         self.keychain.private_key)
 

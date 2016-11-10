@@ -1,0 +1,10 @@
+for puzzles,
+we don't verify the packet
+during the parse pl phase, we check signature and then verify the expiration time of the cert with timestamp of the client
+
+parse for 6 types of packets (photo)
+parse for all types of payload
+
+payload is a tuple
+-- sent on socket as length | param
+length is 2 bytes in the payload
