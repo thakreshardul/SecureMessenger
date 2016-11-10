@@ -13,6 +13,14 @@ message_type = {
     "Password": 5
 }
 
+message_dictionary = {
+    0:"Reject",
+    1:"Login",
+    2:"Puzzle",
+    3:"Solution",
+    4:"Server_DH",
+    5:"Password"
+}
 
 class Message:
     def __init__(self):
@@ -115,7 +123,14 @@ class MessageParser:
     def __init__(self, sender_public_key):
         self.sender_public_key = sender_public_key
 
-
+    @staticmethod
+    def get_message_type(message):
+        return message_dictionary[ord(message[0])]
 
 if __name__ == "__main__":
+    msg_gen = MessageGenerator(None,None)
+    msg = msg_gen.generate_login_packet()
+    print msg
+    msg_parse = MessageParser(None)
+    msg_parse.get_message_type(str(msg))
     pass
