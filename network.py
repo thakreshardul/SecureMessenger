@@ -33,11 +33,11 @@ class Udp:
 
     def __recv_message(self):
         while True:
-            msg = self.socket.recv(1000)
+            msg_addr = self.socket.recvfrom(1000)
             current_thread = self.current_thread
             t, cv, q = self.threads[current_thread]
             cv.acquire()
-            q.append(msg)
+            q.append(msg_addr)
             cv.notify()
             cv.release()
             self.current_thread = (current_thread + 1) % self.num_threads
@@ -47,9 +47,9 @@ class Udp:
             cv.acquire()
             if len(q) == 0:
                 cv.wait()
-            msg = q.pop()
-            self.handlers[MessageParser.get_message_type(msg)](
-                self.obj_of_handlers, msg)
+            msg_addr = q.pop()
+            self.handlers[MessageParser.get_message_type(msg_addr[0])](
+                self.obj_of_handlers, msg_addr)
             # self.handlers["Login"](self.obj_of_handlers, msg)
             cv.release()
 

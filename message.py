@@ -14,13 +14,14 @@ message_type = {
 }
 
 message_dictionary = {
-    0:"Reject",
-    1:"Login",
-    2:"Puzzle",
-    3:"Solution",
-    4:"Server_DH",
-    5:"Password"
+    0: "Reject",
+    1: "Login",
+    2: "Puzzle",
+    3: "Solution",
+    4: "Server_DH",
+    5: "Password"
 }
+
 
 class Message:
     def __init__(self):
@@ -33,12 +34,21 @@ class Message:
     def __str__(self):
         key_len = str(len(self.key))
         sign_len = str(len(self.sign))
-        payload_len = str(len(self.payload))
-        fmt = "!b" + key_len + "s" + sign_len + "sL" + payload_len + "s"
+        payload = self.str_payload()
+        payload_len = str(len(payload))
+        fmt = "!B" + key_len + "s" + sign_len + "sL" + payload_len + "s"
         return struct.pack(fmt,
                            self.type, self.key, self.sign, self.timestamp,
-                           self.payload)
+                           payload)
 
+    def str_payload(self):
+        payload = ""
+        for param in self.payload:
+            l = struct.pack("!H", len(param))
+            payload += l
+            payload += param
+
+        return payload
 
 class MessageGenerator:
     def __init__(self, dest_public_key, sender_private_key):
@@ -126,8 +136,9 @@ class MessageParser:
     def get_message_type(message):
         return message_dictionary[ord(message[0])]
 
+
 if __name__ == "__main__":
-    msg_gen = MessageGenerator(None,None)
+    msg_gen = MessageGenerator(None, None)
     msg = msg_gen.generate_login_packet()
     print msg
     msg_parse = MessageParser(None)

@@ -34,6 +34,7 @@ def generate_server_hash_password(username, password, salt):
 
 
 # Generated DH Pair using Elliptic Curve Cryptography
+# Better check correct security parameter
 def generate_dh_pair():
     private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
     pub = private_key.public_key()
@@ -85,7 +86,7 @@ def encrypt_key(public_key, key):
 
 
 def sign_stuff(private_key, stuff):
-    signature = private_key.signer(
+    signature = private_key.sign(
         stuff,
         padding.PSS(
             mgf=padding.MGF1(hashes.SHA512()),
