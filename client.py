@@ -1,17 +1,19 @@
 from keychain import ClientKeyChain
+from message import MessageGenerator
+from network import *
 
 
 class ChatClient:
-    def __init__(self, ip, port):
-        self.ip = ip
-        self.port = port
+    def __init__(self, sip, sport):
+        self.sip = sip
+        self.sport = sport
         self.keychain = ClientKeyChain(65537, 2048)
-
-    def setup_networking(self):
-        pass
+        self.socket = create_socket()
+        self.msg_gen = MessageGenerator(self.keychain.public_key,
+                                        self.keychain.private_key)
 
     def login(self, username, password):
-        pass
+        self.socket.sendto(str(self.msg_gen.generate_login_packet()),("127.0.0.1", 6000))
 
     def list(self):
         pass
@@ -19,18 +21,8 @@ class ChatClient:
     def send(self, destination, message):
         pass
 
-    
-
 
 if __name__ == "__main__":
-    client = ChatClient("127.0.0.1", 7050)
-    # import threading
-    #
-    #
-    # def printit():
-    #     threading.Timer(1.0, printit).start()
-    #     print "Hello, World!"
-    #
-    #
-    # printit()
-
+    client = ChatClient("127.0.0.1", 6000)
+    for i in xrange(100000):
+        client.login("", "")

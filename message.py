@@ -35,7 +35,6 @@ class Message:
         sign_len = str(len(self.sign))
         payload_len = str(len(self.payload))
         fmt = "!b" + key_len + "s" + sign_len + "sL" + payload_len + "s"
-        print fmt
         return struct.pack(fmt,
                            self.type, self.key, self.sign, self.timestamp,
                            self.payload)
