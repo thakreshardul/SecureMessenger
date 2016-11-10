@@ -27,7 +27,6 @@ class Message:
         sign_len = str(len(self.sign))
         payload_len = str(len(self.payload))
         fmt = "!b" + key_len + "s" + sign_len + "sL" + payload_len + "s"
-        print fmt
         return struct.pack(fmt,
                            self.type, self.key, self.sign, self.timestamp,
                            self.payload)
@@ -115,6 +114,9 @@ class MessageParser:
     def __init__(self, sender_public_key):
         self.sender_public_key = sender_public_key
 
+    @staticmethod
+    def get_message_type(msg):
+        pass
 
 
 if __name__ == "__main__":
