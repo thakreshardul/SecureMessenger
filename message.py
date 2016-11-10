@@ -8,7 +8,9 @@ message_type = {
     "Reject": 0,
     "Login": 1,
     "Puzzle": 2,
-    "Solution": 3
+    "Solution": 3,
+    "Server_DH": 4,
+    "Password": 5
 }
 
 
@@ -68,6 +70,24 @@ class MessageGenerator:
         msg = self.__sign_packet(msg)
         return msg
 
+    def generate_server_dh_packet(self, dh_public_key, n2):
+        msg = Message()
+        msg.type = message_type["Server_DH"]
+        msg.payload = dh_public_key + "#" + n2
+        msg = self.__encrypt_packet_with_pub(msg)
+        msg.timestamp = self.__get_timestamp()
+        msg = self.__sign_packet(msg)
+        return msg
+
+    def generate_password_packet(self, key, client_password, sender_public_key):
+        msg = Message()
+        msg.type = message_type["Password"]
+        msg.timestamp = self.__get_timestamp()
+        msg.payload = msg.timestamp + "#" + client_password + "#" + sender_public_key
+        msg = self.__encrypt_packet_with_skey(msg, key)
+        msg.sign = ""
+        return msg
+
     def __encrypt_packet_with_pub(self, msg):
         skey = os.urandom(32)
         iv = os.urandom(16)
@@ -76,8 +96,12 @@ class MessageGenerator:
         msg.key = encrypt_key(self.dest_public_key, skey + iv + tag)
         return msg
 
-    def __encrypt_packet_with_skey(self, msg):
-        pass
+    def __encrypt_packet_with_skey(self, msg, skey):
+        iv = os.urandom(16)
+        tag, ciphertext = encrypt_payload(skey, iv, msg.payload)
+        msg.payload = ciphertext
+        msg.key = iv + tag
+        return msg
 
     def __sign_packet(self, msg):
         stuff = struct.pack("!L" + str(len(msg.payload)) + "s", msg.timestamp,
@@ -85,6 +109,12 @@ class MessageGenerator:
         signature = sign_stuff(self.sender_private_key, stuff)
         msg.sign = signature
         return msg
+
+
+class MessageParser:
+    def __init__(self, sender_public_key):
+        self.sender_public_key = sender_public_key
+
 
 
 if __name__ == "__main__":

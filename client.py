@@ -19,6 +19,8 @@ class ChatClient:
     def send(self, destination, message):
         pass
 
+    
+
 
 if __name__ == "__main__":
     client = ChatClient("127.0.0.1", 7050)
