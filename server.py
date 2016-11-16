@@ -3,7 +3,8 @@ import struct
 import threading
 import time
 
-from crypto import *
+import constants
+from crypto import sign_stuff
 from keychain import ServerKeyChain
 from message import MessageGenerator
 from network import Udp
@@ -16,8 +17,9 @@ class Server:
         self.ip = ip
         self.port = port
         self.socket = udp.socket
-        self.keychain = ServerKeyChain(open("priv.der", 'r'),
-                                       open("pub.der", "r"))
+        self.keychain = ServerKeyChain(
+            open(constants.SERVER_PRIVATE_DER_FILE, 'r'),
+            open(constants.SERVER_PUBLIC_DER_FILE, "r"))
         self.msg_gen = MessageGenerator(self.keychain.public_key,
                                         self.keychain.private_key)
         self.certificate = None
@@ -41,6 +43,10 @@ class Server:
     def got_login_packet(self, msg):
         ret_msg = self.msg_gen.generate_puzzle_response(self.certificate)
         self.socket.sendto(str(ret_msg), msg[1])
+
+    @udp.endpoint("Solution")
+    def got_solution(self, msg_addr):
+        print msg_addr[0]
 
 
 if __name__ == "__main__":

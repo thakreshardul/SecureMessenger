@@ -4,10 +4,13 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.ciphers import algorithms
 from cryptography.hazmat.primitives.ciphers import modes
 from cryptography.hazmat.primitives.constant_time import bytes_eq
 from cryptography.hazmat.primitives.kdf import pbkdf2
+
+import exceptions
 
 
 # Generates Hash of Password on Client Side
@@ -41,6 +44,22 @@ def generate_dh_pair():
     return pub, private_key
 
 
+def generate_rsa_pair():
+    private_key = rsa.generate_private_key(public_exponent=65537,
+                                           key_size=2048,
+                                           backend=default_backend())
+    return private_key.public_key(), private_key
+
+
+def load_rsa_pair(priv_der, pub_der):
+    private_key = serialization.load_der_private_key(priv_der.read(),
+                                                     None,
+                                                     default_backend())
+    public_key = serialization.load_der_public_key(pub_der.read(),
+                                                   default_backend())
+    return public_key, private_key
+
+
 # Should be used to get symmetric key like K(AS) or K(AB)
 def derive_symmetric_key(private_key, public_key, n1, n2):
     shared_key = __get_shared_secret(private_key, public_key)
@@ -62,9 +81,15 @@ def solve_puzzle(ns, nc, d):
             return x
         x += 1
 
+
 # Verifies the puzzle
-def verify_puzzle(ns,nc,x,d):
-    pass
+def verify_puzzle(ns, nc, x, d):
+    h = hashes.Hash(hashes.SHA256(), backend=default_backend())
+    h.update(ns)
+    h.update(nc)
+    h.update(bytes(x))
+    if not __is_first_k_zeros(h.finalize(), d):
+        raise exceptions.InvalidSolutionException
 
 
 def encrypt_payload(skey, iv, payload):

@@ -1,5 +1,6 @@
 import os
 
+import constants
 from crypto import *
 from keychain import ClientKeyChain
 from message import MessageGenerator
@@ -12,14 +13,16 @@ class ChatClient:
     def __init__(self, sip, sport):
         self.sip = sip
         self.sport = sport
-        self.keychain = ClientKeyChain(65537, 2048)
+        self.keychain = ClientKeyChain(
+            open(constants.SERVER_PRIVATE_DER_FILE, 'r'),
+            open(constants.SERVER_PUBLIC_DER_FILE, 'r'))
         self.socket = udp.socket
-        self.msg_gen = MessageGenerator(self.keychain.public_key,
+        self.msg_gen = MessageGenerator(self.keychain.server_pub_key,
                                         self.keychain.private_key)
 
     def login(self, username, password):
         self.username = username
-        self.password = password
+        self.password = generate_client_hash_password(username, password)
         self.socket.sendto(str(self.msg_gen.generate_login_packet()),
                            ("127.0.0.1", 6000))
 
@@ -41,9 +44,15 @@ class ChatClient:
         x = solve_puzzle(ns, nc, d)
         pub, priv = generate_dh_pair()
         # Should Save Private Key
-        # self.socket.sendto(
-        #     self.msg_gen.generate_solution_packet(x, self.username, pub,
-        #                                           os.urandom(16)))
+        self.keychain.dh_keys[''] = priv
+        serialized_public = pub.public_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo)
+        self.socket.sendto(
+            str(self.msg_gen.generate_solution_packet(x, self.username,
+                                                  serialized_public,
+                                                  os.urandom(16))),
+            (self.sip, self.sport))
 
     def list(self):
         pass

@@ -29,6 +29,8 @@ class Message:
         self.timestamp = None
         self.key = None
         self.sign = None
+        self.src = None
+        self.dest = None
         self.payload = None
 
     def __str__(self):
@@ -49,6 +51,7 @@ class Message:
             payload += param
 
         return payload
+
 
 class MessageGenerator:
     def __init__(self, dest_public_key, sender_private_key):
@@ -80,7 +83,7 @@ class MessageGenerator:
         msg = Message()
         msg.type = message_type["Solution"]
         msg.sign = solution
-        payload = username + "#" + dh_public_key + "#" + n1
+        payload = (username, dh_public_key, n1)
         msg.payload = payload
         msg = self.__encrypt_packet_with_pub(msg)
         msg.timestamp = self.__get_timestamp()
