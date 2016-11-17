@@ -126,10 +126,51 @@ class MessageParser:
     def get_message_type(message):
         return message_dictionary[ord(message[0])]
 
+    def parse_type0(self, message):
+        msg_type = self.get_message_type(str(message))
+        msg_ts = message.timestamp
+        return msg_type, msg_ts
+
+    def parse_type1(self, message):
+        msg_type = self.get_message_type(str(message))
+        msg_ekey = message.key
+        msg_sign = message.sign
+        msg_ts = message.timestamp
+        msg_payload = message.payload   # parse pl
+        return msg_type, msg_ekey, msg_sign, msg_ts, msg_payload
+
+    def parse_type2(self, message):
+        msg_type = self.get_message_type(str(message))
+        msg_iv = message.key
+        msg_sign = message.sign
+        msg_ts = message.timestamp
+        msg_payload = message.payload
+        return msg_type, msg_iv, msg_sign, msg_ts, msg_payload
+
+    def parse_type3(self, message):
+        msg_type = self.get_message_type(str(message))
+        msg_ekey = message.key
+        msg_ans = message.sign
+        msg_ts = message.timestamp
+        msg_payload = message.payload
+        return msg_type, msg_ekey, msg_ans, msg_ts, msg_payload
+
+    def parse_type4(self, message):
+        msg_type = self.get_message_type(str(message))
+        msg_sign = message.sign
+        msg_ts = message.timestamp
+        msg_payload = message.payload #parse pl
+        return msg_type, msg_sign, msg_ts, msg_payload
+
+    def parse_type5(self, message):
+        msg_type = self.get_message_type(str(message))
+        msg_iv = message.key
+        msg_ts = message.timestamp
+        msg_payload = message.payload
+        return msg_type, msg_iv, msg_ts, msg_payload
+
 if __name__ == "__main__":
     msg_gen = MessageGenerator(None,None)
     msg = msg_gen.generate_login_packet()
     print msg
-    msg_parse = MessageParser(None)
-    msg_parse.get_message_type(str(msg))
     pass
