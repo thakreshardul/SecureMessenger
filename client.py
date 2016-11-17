@@ -49,9 +49,9 @@ class ChatClient:
             encoding=serialization.Encoding.DER,
             format=serialization.PublicFormat.SubjectPublicKeyInfo)
         self.socket.sendto(
-            str(self.msg_gen.generate_solution_packet(x, self.username,
-                                                  serialized_public,
-                                                  os.urandom(16))),
+            str(self.msg_gen.generate_solution_packet((nc, x), self.username,
+                                                      serialized_public,
+                                                      os.urandom(16))),
             (self.sip, self.sport))
 
     def list(self):

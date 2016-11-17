@@ -4,3 +4,6 @@ class ChatException(Exception):
 
 class InvalidSolutionException(ChatException):
     pass
+
+class InvalidTimeStampException(ChatException):
+    pass

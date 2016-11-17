@@ -110,6 +110,16 @@ def encrypt_key(public_key, key):
     return ciphertext
 
 
+def decrypt_key(private_key, ciphertext):
+    plaintext = private_key.decrypt(
+        ciphertext,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA512()),
+            algorithm=hashes.SHA512(),
+            label=None))
+    return plaintext
+
+
 def sign_stuff(private_key, stuff):
     signature = private_key.sign(
         stuff,
