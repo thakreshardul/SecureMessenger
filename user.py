@@ -2,6 +2,7 @@ class ServerUser:
     def __init__(self):
         self.username = None
         self.password = None
+        self.salt = None
         self.public_key = None
         self.key = None
         self.ip = None
