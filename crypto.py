@@ -4,10 +4,13 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.ciphers import algorithms
 from cryptography.hazmat.primitives.ciphers import modes
 from cryptography.hazmat.primitives.constant_time import bytes_eq
 from cryptography.hazmat.primitives.kdf import pbkdf2
+
+import exceptions
 
 
 # Generates Hash of Password on Client Side
@@ -34,10 +37,27 @@ def generate_server_hash_password(username, password, salt):
 
 
 # Generated DH Pair using Elliptic Curve Cryptography
+# Better check correct security parameter
 def generate_dh_pair():
     private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
     pub = private_key.public_key()
     return pub, private_key
+
+
+def generate_rsa_pair():
+    private_key = rsa.generate_private_key(public_exponent=65537,
+                                           key_size=2048,
+                                           backend=default_backend())
+    return private_key.public_key(), private_key
+
+
+def load_rsa_pair(priv_der, pub_der):
+    private_key = serialization.load_der_private_key(priv_der.read(),
+                                                     None,
+                                                     default_backend())
+    public_key = serialization.load_der_public_key(pub_der.read(),
+                                                   default_backend())
+    return public_key, private_key
 
 
 # Should be used to get symmetric key like K(AS) or K(AB)
@@ -61,9 +81,15 @@ def solve_puzzle(ns, nc, d):
             return x
         x += 1
 
+
 # Verifies the puzzle
-def verify_puzzle(ns,nc,x,d):
-    pass
+def verify_puzzle(ns, nc, x, d):
+    h = hashes.Hash(hashes.SHA256(), backend=default_backend())
+    h.update(ns)
+    h.update(nc)
+    h.update(bytes(x))
+    if not __is_first_k_zeros(h.finalize(), d):
+        raise exceptions.InvalidSolutionException
 
 
 def encrypt_payload(skey, iv, payload):
@@ -84,8 +110,18 @@ def encrypt_key(public_key, key):
     return ciphertext
 
 
+def decrypt_key(private_key, ciphertext):
+    plaintext = private_key.decrypt(
+        ciphertext,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA512()),
+            algorithm=hashes.SHA512(),
+            label=None))
+    return plaintext
+
+
 def sign_stuff(private_key, stuff):
-    signature = private_key.signer(
+    signature = private_key.sign(
         stuff,
         padding.PSS(
             mgf=padding.MGF1(hashes.SHA512()),

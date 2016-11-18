@@ -3,6 +3,7 @@ import struct
 import time
 
 from crypto import *
+from exceptions import *
 
 message_type = {
     "Reject": 0,
@@ -14,13 +15,14 @@ message_type = {
 }
 
 message_dictionary = {
-    0:"Reject",
-    1:"Login",
-    2:"Puzzle",
-    3:"Solution",
-    4:"Server_DH",
-    5:"Password"
+    0: "Reject",
+    1: "Login",
+    2: "Puzzle",
+    3: "Solution",
+    4: "Server_DH",
+    5: "Password"
 }
+
 
 class Message:
     def __init__(self):
@@ -28,16 +30,28 @@ class Message:
         self.timestamp = None
         self.key = None
         self.sign = None
+        self.src = None
+        self.dest = None
         self.payload = None
 
     def __str__(self):
         key_len = str(len(self.key))
         sign_len = str(len(self.sign))
-        payload_len = str(len(self.payload))
-        fmt = "!b" + key_len + "s" + sign_len + "sL" + payload_len + "s"
+        payload = self.str_payload()
+        payload_len = str(len(payload))
+        fmt = "!B" + key_len + "s" + sign_len + "sL" + payload_len + "s"
         return struct.pack(fmt,
                            self.type, self.key, self.sign, self.timestamp,
-                           self.payload)
+                           payload)
+
+    def str_payload(self):
+        payload = ""
+        for param in self.payload:
+            l = struct.pack("!H", len(param))
+            payload += l
+            payload += param
+
+        return payload
 
 
 class MessageGenerator:
@@ -69,12 +83,13 @@ class MessageGenerator:
     def generate_solution_packet(self, solution, username, dh_public_key, n1):
         msg = Message()
         msg.type = message_type["Solution"]
-        msg.sign = solution
-        payload = username + "#" + dh_public_key + "#" + n1
+        msg.sign = '0' * (256 - len(str(solution))) + bytes(
+            solution[0]+solution[1])  # Possible Bug Should Probably Give Length for safe side
+        payload = (username, dh_public_key, n1)
         msg.payload = payload
         msg = self.__encrypt_packet_with_pub(msg)
         msg.timestamp = self.__get_timestamp()
-        msg = self.__sign_packet(msg)
+        # msg = self.__sign_packet(msg) Shouldnt Sign Solution Packet
         return msg
 
     def generate_server_dh_packet(self, dh_public_key, n2):
@@ -98,7 +113,7 @@ class MessageGenerator:
     def __encrypt_packet_with_pub(self, msg):
         skey = os.urandom(32)
         iv = os.urandom(16)
-        tag, ciphertext = encrypt_payload(skey, iv, msg.payload)
+        tag, ciphertext = encrypt_payload(skey, iv, msg.str_payload())
         msg.payload = ciphertext
         msg.key = encrypt_key(self.dest_public_key, skey + iv + tag)
         return msg
@@ -125,6 +140,23 @@ class MessageParser:
     @staticmethod
     def get_message_type(message):
         return message_dictionary[ord(message[0])]
+
+    def verify_timestamp(self, msg):
+        uts = 0
+        cts = 0
+        if ord(msg[0]) == message_type['Solution']:
+            ts = msg[513:517]
+
+            uts = struct.unpack("!L", ts)[0]
+            cts = long(time.time())
+
+        if uts < cts - 5000:
+            raise InvalidTimeStampException()
+
+    def verify_solution(self, msg):
+        solution = msg[257:513]
+
+
 
     def parse_nokey_nosign(self, message):
         parsed_message = Message()
@@ -176,7 +208,7 @@ class MessageParser:
         return parsed_message
 
 if __name__ == "__main__":
-    msg_gen = MessageGenerator(None,None)
+    msg_gen = MessageGenerator(None, None)
     msg = msg_gen.generate_login_packet()
     print msg
     pass

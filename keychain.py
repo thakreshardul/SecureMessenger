@@ -1,14 +1,13 @@
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
+from crypto import *
 
 
 class ClientKeyChain:
-    def __init__(self, p_exp, key_size):
-        self.private_key = rsa.generate_private_key(public_exponent=p_exp,
-                                                    key_size=key_size,
-                                                    backend=default_backend())
-        self.public_key = self.private_key.public_key()
+    def __init__(self, server_priv_file, server_pub_file):
+        self.public_key, self.private_key = generate_rsa_pair()
+        self.server_pub_key, self.server_priv_key = load_rsa_pair(
+            server_priv_file, server_pub_file)
+
+        self.dh_keys = {}
         self.users = {}
 
     def add_user(self, user):
@@ -20,11 +19,7 @@ class ClientKeyChain:
 
 class ServerKeyChain:
     def __init__(self, priv_file, pub_file):
-        self.private_key = serialization.load_der_private_key(priv_file.read(),
-                                                              None,
-                                                              default_backend())
-        self.public_key = serialization.load_der_public_key(pub_file.read(),
-                                                            default_backend())
+        self.public_key, self.private_key = load_rsa_pair(priv_file, pub_file)
         self.users = {}
 
     def add_user(self, user):
