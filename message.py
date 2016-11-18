@@ -157,56 +157,57 @@ class MessageParser:
 
     def parse_nokey_nosign(self, message):
         parsed_message = Message()
-        parsed_message.type = self.get_message_type(str(message))
-        parsed_message.timestamp = message.timestamp
+        parsed_message.type = ord(message[0])
+        parsed_message.timestamp = struct.unpack("!L", message[1:5])
+        parsed_message.payload = message[5:]
         return parsed_message
 
     def parse_key_asym_sign(self, message):
         parsed_message = Message()
-        parsed_message.type = self.get_message_type(str(message))
-        parsed_message.key = message.key
-        parsed_message.sign = message.sign
-        parsed_message.timestamp = message.timestamp
-        parsed_message.payload = message.payload  # parse pl
+        parsed_message.type = ord(message[0])
+        parsed_message.key = message[1:257]
+        parsed_message.sign = message[257:513]
+        parsed_message.timestamp = struct.unpack("!L", message[513:517])
+        parsed_message.payload = message[517:]   # parse pl
         return parsed_message
 
     def parse_key_sym_sign(self, message):
         parsed_message = Message()
-        parsed_message.type = self.get_message_type(str(message))
-        parsed_message.key = message.key
-        parsed_message.sign = message.sign
-        parsed_message.timestamp = message.timestamp
-        parsed_message.payload = message.payload
+        parsed_message.type = ord(message[0])
+        parsed_message.key = message[1:33]
+        parsed_message.sign = message[33:289]
+        parsed_message.timestamp = struct.unpack("!L", message[289:293])
+        parsed_message.payload = message[293:]
         return parsed_message
 
     def parse_key_asym_ans(self, message):
         parsed_message = Message()
-        parsed_message.type = self.get_message_type(str(message))
-        parsed_message.key = message.key
-        parsed_message.sign = message.sign
-        parsed_message.timestamp = message.timestamp
-        parsed_message.payload = message.payload
+        parsed_message.type = ord(message[0])
+        parsed_message.key = message[1:257]
+        ans_index = 257+16+int(struct.unpack("!H", message[257+16:257+18]))
+        parsed_message.sign = message[257:ans_index]
+        parsed_message.timestamp = struct.unpack("!L", message[ans_index:ans_index+4])
+        parsed_message.payload = message[ans_index+4:]
         return parsed_message
 
     def parse_sign(self, message):
         parsed_message = Message()
-        parsed_message.type = self.get_message_type(str(message))
-        parsed_message.sign = message.sign
-        parsed_message.timestamp = message.timestamp
-        parsed_message.payload = message.payload  # parse pl
+        parsed_message.type = ord(message[0])
+        parsed_message.sign = message[1:257]
+        parsed_message.timestamp = struct.unpack("!L", message[257:261])
+        parsed_message.payload = message[261:] #parse pl
         return parsed_message
 
     def parse_key_sym(self, message):
         parsed_message = Message()
-        parsed_message.type = self.get_message_type(str(message))
-        parsed_message.key = message.key
-        parsed_message.timestamp = message.timestamp
-        parsed_message.payload = message.payload
+        parsed_message.type = ord(message[0])
+        parsed_message.key = message[1:33]
+        parsed_message.timestamp = struct.unpack("!L", message[33:37])
+        parsed_message.payload = message[37:]
         return parsed_message
 
 
 if __name__ == "__main__":
     msg_gen = MessageGenerator(None, None)
-    msg = msg_gen.generate_login_packet()
-    print msg
+    print msg_gen.generate_login_packet()
     pass
