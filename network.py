@@ -33,7 +33,7 @@ class Udp:
 
     def __recv_message(self):
         while True:
-            msg = self.socket.recv(1000)
+            msg, addr = self.socket.recvfrom(1000)
             current_thread = self.current_thread
             t, cv, q = self.threads[current_thread]
             cv.acquire()

@@ -126,48 +126,54 @@ class MessageParser:
     def get_message_type(message):
         return message_dictionary[ord(message[0])]
 
-    def parse_type0(self, message):
-        msg_type = self.get_message_type(str(message))
-        msg_ts = message.timestamp
-        return msg_type, msg_ts
+    def parse_nokey_nosign(self, message):
+        parsed_message = Message()
+        parsed_message.type = self.get_message_type(str(message))
+        parsed_message.timestamp = message.timestamp
+        return parsed_message
 
-    def parse_type1(self, message):
-        msg_type = self.get_message_type(str(message))
-        msg_ekey = message.key
-        msg_sign = message.sign
-        msg_ts = message.timestamp
-        msg_payload = message.payload   # parse pl
-        return msg_type, msg_ekey, msg_sign, msg_ts, msg_payload
+    def parse_key_asym_sign(self, message):
+        parsed_message = Message()
+        parsed_message.type = self.get_message_type(str(message))
+        parsed_message.key = message.key
+        parsed_message.sign = message.sign
+        parsed_message.timestamp = message.timestamp
+        parsed_message.payload = message.payload   # parse pl
+        return parsed_message
 
-    def parse_type2(self, message):
-        msg_type = self.get_message_type(str(message))
-        msg_iv = message.key
-        msg_sign = message.sign
-        msg_ts = message.timestamp
-        msg_payload = message.payload
-        return msg_type, msg_iv, msg_sign, msg_ts, msg_payload
+    def parse_key_sym_sign(self, message):
+        parsed_message = Message()
+        parsed_message.type = self.get_message_type(str(message))
+        parsed_message.key = message.key
+        parsed_message.sign = message.sign
+        parsed_message.timestamp = message.timestamp
+        parsed_message.payload = message.payload
+        return parsed_message
 
-    def parse_type3(self, message):
-        msg_type = self.get_message_type(str(message))
-        msg_ekey = message.key
-        msg_ans = message.sign
-        msg_ts = message.timestamp
-        msg_payload = message.payload
-        return msg_type, msg_ekey, msg_ans, msg_ts, msg_payload
+    def parse_key_asym_ans(self, message):
+        parsed_message = Message()
+        parsed_message.type = self.get_message_type(str(message))
+        parsed_message.key = message.key
+        parsed_message.sign = message.sign
+        parsed_message.timestamp = message.timestamp
+        parsed_message.payload = message.payload
+        return parsed_message
 
-    def parse_type4(self, message):
-        msg_type = self.get_message_type(str(message))
-        msg_sign = message.sign
-        msg_ts = message.timestamp
-        msg_payload = message.payload #parse pl
-        return msg_type, msg_sign, msg_ts, msg_payload
+    def parse_sign(self, message):
+        parsed_message = Message()
+        parsed_message.type = self.get_message_type(str(message))
+        parsed_message.sign = message.sign
+        parsed_message.timestamp = message.timestamp
+        parsed_message.payload = message.payload #parse pl
+        return parsed_message
 
-    def parse_type5(self, message):
-        msg_type = self.get_message_type(str(message))
-        msg_iv = message.key
-        msg_ts = message.timestamp
-        msg_payload = message.payload
-        return msg_type, msg_iv, msg_ts, msg_payload
+    def parse_key_sym(self, message):
+        parsed_message = Message()
+        parsed_message.type = self.get_message_type(str(message))
+        parsed_message.key = message.key
+        parsed_message.timestamp = message.timestamp
+        parsed_message.payload = message.payload
+        return parsed_message
 
 if __name__ == "__main__":
     msg_gen = MessageGenerator(None,None)
