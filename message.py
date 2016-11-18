@@ -37,21 +37,22 @@ class Message:
     def __str__(self):
         key_len = str(len(self.key))
         sign_len = str(len(self.sign))
-        payload = self.str_payload()
+        payload = self.str_tuple(self.payload)
         payload_len = str(len(payload))
         fmt = "!B" + key_len + "s" + sign_len + "sL" + payload_len + "s"
         return struct.pack(fmt,
                            self.type, self.key, self.sign, self.timestamp,
                            payload)
 
-    def str_payload(self):
-        payload = ""
-        for param in self.payload:
+    @staticmethod
+    def str_tuple(tuple):
+        string = ""
+        for param in tuple:
             l = struct.pack("!H", len(param))
-            payload += l
-            payload += param
+            string += l
+            string += param
 
-        return payload
+        return string
 
 
 class MessageGenerator:
@@ -83,10 +84,8 @@ class MessageGenerator:
     def generate_solution_packet(self, solution, username, dh_public_key, n1):
         msg = Message()
         msg.type = message_type["Solution"]
-        msg.sign = '0' * (256 - len(str(solution))) + bytes(
-            solution[0]+solution[1])  # Possible Bug Should Probably Give Length for safe side
-        payload = (username, dh_public_key, n1)
-        msg.payload = payload
+        msg.sign = Message.str_tuple(solution)
+        msg.payload = (username, dh_public_key, n1)
         msg = self.__encrypt_packet_with_pub(msg)
         msg.timestamp = self.__get_timestamp()
         # msg = self.__sign_packet(msg) Shouldnt Sign Solution Packet
@@ -95,7 +94,7 @@ class MessageGenerator:
     def generate_server_dh_packet(self, dh_public_key, n2):
         msg = Message()
         msg.type = message_type["Server_DH"]
-        msg.payload = dh_public_key + "#" + n2
+        msg.payload = (dh_public_key, n2)
         msg = self.__encrypt_packet_with_pub(msg)
         msg.timestamp = self.__get_timestamp()
         msg = self.__sign_packet(msg)
@@ -105,7 +104,7 @@ class MessageGenerator:
         msg = Message()
         msg.type = message_type["Password"]
         msg.timestamp = self.__get_timestamp()
-        msg.payload = msg.timestamp + "#" + client_password + "#" + sender_public_key
+        msg.payload = (msg.timestamp, client_password, sender_public_key)
         msg = self.__encrypt_packet_with_skey(msg, key)
         msg.sign = ""
         return msg
@@ -113,7 +112,7 @@ class MessageGenerator:
     def __encrypt_packet_with_pub(self, msg):
         skey = os.urandom(32)
         iv = os.urandom(16)
-        tag, ciphertext = encrypt_payload(skey, iv, msg.str_payload())
+        tag, ciphertext = encrypt_payload(skey, iv, msg.str_tuple())
         msg.payload = ciphertext
         msg.key = encrypt_key(self.dest_public_key, skey + iv + tag)
         return msg
@@ -156,8 +155,6 @@ class MessageParser:
     def verify_solution(self, msg):
         solution = msg[257:513]
 
-
-
     def parse_nokey_nosign(self, message):
         parsed_message = Message()
         parsed_message.type = self.get_message_type(str(message))
@@ -170,7 +167,7 @@ class MessageParser:
         parsed_message.key = message.key
         parsed_message.sign = message.sign
         parsed_message.timestamp = message.timestamp
-        parsed_message.payload = message.payload   # parse pl
+        parsed_message.payload = message.payload  # parse pl
         return parsed_message
 
     def parse_key_sym_sign(self, message):
@@ -196,7 +193,7 @@ class MessageParser:
         parsed_message.type = self.get_message_type(str(message))
         parsed_message.sign = message.sign
         parsed_message.timestamp = message.timestamp
-        parsed_message.payload = message.payload #parse pl
+        parsed_message.payload = message.payload  # parse pl
         return parsed_message
 
     def parse_key_sym(self, message):
@@ -206,6 +203,7 @@ class MessageParser:
         parsed_message.timestamp = message.timestamp
         parsed_message.payload = message.payload
         return parsed_message
+
 
 if __name__ == "__main__":
     msg_gen = MessageGenerator(None, None)

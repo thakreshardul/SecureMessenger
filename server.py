@@ -49,6 +49,7 @@ class Server:
     @udp.endpoint("Solution")
     def got_solution(self, msg_addr):
         msg = msg_addr[0]
+        msg = self.msg_ver.parse_key_asym_ans(msg)
         self.msg_ver.verify_timestamp(msg)
         self.msg_ver.verify_solution(msg)
         # print len(msg)
