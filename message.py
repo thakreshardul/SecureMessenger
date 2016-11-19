@@ -2,8 +2,8 @@ import os
 import struct
 import time
 
+import constants
 from crypto import *
-from exceptions import *
 
 message_type = {
     "Reject": 0,
@@ -110,15 +110,15 @@ class MessageGenerator:
         return msg
 
     def __encrypt_packet_with_pub(self, msg):
-        skey = os.urandom(32)
-        iv = os.urandom(16)
+        skey = os.urandom(constants.AES_KEY_LENGTH)
+        iv = os.urandom(constants.AES_IV_LENGTH)
         tag, ciphertext = encrypt_payload(skey, iv, msg.str_tuple())
         msg.payload = ciphertext
         msg.key = encrypt_key(self.dest_public_key, skey + iv + tag)
         return msg
 
     def __encrypt_packet_with_skey(self, msg, skey):
-        iv = os.urandom(16)
+        iv = os.urandom(constants.AES_IV_LENGTH)
         tag, ciphertext = encrypt_payload(skey, iv, msg.payload)
         msg.payload = ciphertext
         msg.key = iv + tag
@@ -133,78 +133,107 @@ class MessageGenerator:
 
 
 class MessageParser:
-    def __init__(self, sender_public_key):
-        self.sender_public_key = sender_public_key
-
     @staticmethod
     def get_message_type(message):
         return message_dictionary[ord(message[0])]
 
-    def verify_timestamp(self, msg):
-        uts = 0
-        cts = 0
-        if ord(msg[0]) == message_type['Solution']:
-            ts = msg[513:517]
-
-            uts = struct.unpack("!L", ts)[0]
-            cts = long(time.time())
-
-        if uts < cts - 5000:
-            raise InvalidTimeStampException()
-
-    def verify_solution(self, msg):
-        solution = msg[257:513]
-
     def parse_nokey_nosign(self, message):
         parsed_message = Message()
         parsed_message.type = ord(message[0])
-        parsed_message.timestamp = struct.unpack("!L", message[1:5])
-        parsed_message.payload = message[5:]
+        start_index = 1
+        end_index = start_index + constants.TIMESTAMP_LENGTH
+        parsed_message.timestamp = message[start_index:end_index]
+        parsed_message.payload = self.parse_payload(message[end_index:])
+        parsed_message.timestamp = struct.unpack("!L", parsed_message.timestamp)
+
         return parsed_message
 
     def parse_key_asym_sign(self, message):
         parsed_message = Message()
         parsed_message.type = ord(message[0])
-        parsed_message.key = message[1:257]
-        parsed_message.sign = message[257:513]
-        parsed_message.timestamp = struct.unpack("!L", message[513:517])
-        parsed_message.payload = message[517:]   # parse pl
+        start_index = 1
+        end_index = start_index + constants.EKEY_LENGTH
+        parsed_message.key = message[start_index:end_index]
+        start_index = end_index
+        end_index += constants.SIGNATURE_LENGTH
+        parsed_message.sign = message[start_index:end_index]
+        start_index = end_index
+        end_index += constants.TIMESTAMP_LENGTH
+        parsed_message.timestamp = struct.unpack("!L",
+                                                 message[start_index:end_index])
+        parsed_message.payload = self.parse_payload(message[end_index:])
         return parsed_message
 
     def parse_key_sym_sign(self, message):
         parsed_message = Message()
         parsed_message.type = ord(message[0])
-        parsed_message.key = message[1:33]
-        parsed_message.sign = message[33:289]
-        parsed_message.timestamp = struct.unpack("!L", message[289:293])
-        parsed_message.payload = message[293:]
+        start_index = 1
+        end_index = start_index + constants.AES_IV_LENGTH + constants.AES_TAG_LENGTH
+        parsed_message.key = message[start_index:end_index]
+        start_index = end_index
+        end_index += constants.SIGNATURE_LENGTH
+        parsed_message.sign = message[start_index:end_index]
+        start_index = end_index
+        end_index += constants.TIMESTAMP_LENGTH
+        parsed_message.timestamp = struct.unpack("!L",
+                                                 message[start_index:end_index])
+        parsed_message.payload = self.parse_payload(message[end_index:])
         return parsed_message
 
     def parse_key_asym_ans(self, message):
         parsed_message = Message()
         parsed_message.type = ord(message[0])
-        parsed_message.key = message[1:257]
-        ans_index = 257+16+int(struct.unpack("!H", message[257+16:257+18]))
-        parsed_message.sign = message[257:ans_index]
-        parsed_message.timestamp = struct.unpack("!L", message[ans_index:ans_index+4])
-        parsed_message.payload = message[ans_index+4:]
+        start_index = 1
+        end_index = start_index + constants.AES_KEY_LENGTH
+        parsed_message.key = message[start_index:end_index]
+        start_index = end_index
+        end_index = end_index + constants.NONCE_LENGTH
+        l = int(struct.unpack("!H", message[
+                                    end_index:end_index + constants.LEN_LENGTH]))
+        end_index += constants.LEN_LENGTH + l
+        parsed_message.sign = message[start_index:end_index]
+        start_index = end_index
+        end_index += constants.TIMESTAMP_LENGTH
+        parsed_message.timestamp = struct.unpack("!L",
+                                                 message[start_index:end_index])
+        parsed_message.payload = self.parse_payload(message[end_index:])
         return parsed_message
 
     def parse_sign(self, message):
         parsed_message = Message()
         parsed_message.type = ord(message[0])
-        parsed_message.sign = message[1:257]
-        parsed_message.timestamp = struct.unpack("!L", message[257:261])
-        parsed_message.payload = message[261:] #parse pl
+        start_index = 1
+        end_index = start_index + constants.SIGNATURE_LENGTH
+        parsed_message.sign = message[start_index:end_index]
+        start_index = end_index
+        end_index += constants.TIMESTAMP_LENGTH
+        parsed_message.timestamp = struct.unpack("!L",
+                                                 message[start_index:end_index])
+        parsed_message.payload = self.parse_payload(message[end_index:])
         return parsed_message
 
     def parse_key_sym(self, message):
         parsed_message = Message()
         parsed_message.type = ord(message[0])
-        parsed_message.key = message[1:33]
-        parsed_message.timestamp = struct.unpack("!L", message[33:37])
-        parsed_message.payload = message[37:]
+        start_index = 1
+        end_index = start_index + constants.AES_IV_LENGTH + constants.AES_TAG_LENGTH
+        parsed_message.key = message[start_index:end_index]
+        start_index = end_index
+        end_index += constants.TIMESTAMP_LENGTH
+        parsed_message.timestamp = struct.unpack("!L",
+                                                 message[start_index:end_index])
+        parsed_message.payload = self.parse_payload(message[end_index:])
         return parsed_message
+
+    def parse_payload(self, payload):
+        header_length = 2
+        pl = []
+        while True:
+            header = struct.unpack("!H", payload[:header_length])[0]
+            param = payload[header_length, header_length + header]
+            pl.append(param)
+            payload = payload[header_length+header:]
+        return tuple(payload)
 
 
 if __name__ == "__main__":
