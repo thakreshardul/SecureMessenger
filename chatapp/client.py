@@ -1,7 +1,7 @@
-from keychain import ClientKeyChain
-from message import *
-from network import *
-from user import *
+from chatapp.keychain import ClientKeyChain
+from chatapp.message import *
+from chatapp.network import *
+from chatapp.ds import ClientUser
 
 udp = Udp("127.0.0.1", 5000, 1)
 
@@ -61,7 +61,7 @@ class ChatClient:
         msg = msg_addr[0]
         msg = self.msg_parser.parse_sign(msg)
         ## Verify Signature
-        server_dh, n2, = Message.parse_payload(msg.payload)
+        server_dh, n2, = Message.str_to_tuple(msg.payload)
         server_dh = convert_bytes_to_public_key(server_dh)
         dh_priv, n1 = self.keychain.dh_keys['']
         key = derive_symmetric_key(dh_priv, server_dh, n1, n2)

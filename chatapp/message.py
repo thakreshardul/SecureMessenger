@@ -3,6 +3,7 @@ import struct
 import time
 
 import constants
+from chatapp.utlities import
 from crypto import *
 
 message_type = {
@@ -30,40 +31,12 @@ class Message:
         self.timestamp = None
         self.key = None
         self.sign = None
-        self.src = None
-        self.dest = None
         self.payload = None
 
     def __str__(self):
-        key_len = str(len(self.key))
-        sign_len = str(len(self.sign))
-        payload_len = str(len(self.payload))
-        fmt = "!B" + key_len + "s" + sign_len + "sL" + payload_len + "s"
-        return struct.pack(fmt,
-                           self.type, self.key, self.sign, self.timestamp,
-                           self.payload)
-
-    @staticmethod
-    def str_tuple(tuple):
-        string = ""
-        for param in tuple:
-            l = struct.pack("!H", len(param))
-            string += l
-            string += param
-
-        return string
-
-    @staticmethod
-    def parse_payload(payload):
-        pl = []
-        while True:
-            if payload == "":
-                break
-            header = struct.unpack("!H", payload[:constants.LEN_LENGTH])[0]
-            param = payload[constants.LEN_LENGTH:constants.LEN_LENGTH + header]
-            pl.append(param)
-            payload = payload[constants.LEN_LENGTH + header:]
-        return tuple(pl)
+        type = struct.pack("!B", self.type)
+        ts = struct.pack("!L", self.timestamp)
+        return type + self.key + self.sign + ts + self.payload
 
 
 class MessageGenerator:
@@ -89,13 +62,13 @@ class MessageGenerator:
         msg.timestamp = self.__get_timestamp()
         msg.key = ""
         msg.sign = ""
-        msg.payload = Message.str_tuple(certificate)
+        msg.payload = Message.tuple_to_str(certificate)
         return msg
 
     def generate_solution_packet(self, solution, username, dh_public_key, n1):
         msg = Message()
         msg.type = message_type["Solution"]
-        msg.sign = Message.str_tuple(solution)
+        msg.sign = Message.tuple_to_str(solution)
         msg.payload = (username, dh_public_key, n1)
         msg = self.__encrypt_packet_with_pub(msg)
         msg.timestamp = self.__get_timestamp()
@@ -106,7 +79,7 @@ class MessageGenerator:
         msg.type = message_type["Server_DH"]
         msg.key = ""
         msg.payload = (dh_public_key, n2)
-        msg.payload = Message.str_tuple(msg.payload)
+        msg.payload = Message.tuple_to_str(msg.payload)
         msg.timestamp = self.__get_timestamp()
         msg = self.__sign_packet(msg)
         return msg
@@ -124,14 +97,15 @@ class MessageGenerator:
         skey = os.urandom(constants.AES_KEY_LENGTH)
         iv = os.urandom(constants.AES_IV_LENGTH)
         tag, ciphertext = encrypt_payload(skey, iv,
-                                          Message.str_tuple(msg.payload))
+                                          Message.tuple_to_str(msg.payload))
         msg.payload = ciphertext
         msg.key = encrypt_key(self.dest_public_key, skey + iv + tag)
         return msg
 
     def __encrypt_packet_with_skey(self, msg, skey):
         iv = os.urandom(constants.AES_IV_LENGTH)
-        tag, ciphertext = encrypt_payload(skey, iv, Message.str_tuple(msg.payload))
+        tag, ciphertext = encrypt_payload(skey, iv,
+                                          Message.tuple_to_str(msg.payload))
         msg.payload = ciphertext
         msg.key = iv + tag
         return msg
@@ -157,8 +131,9 @@ class MessageParser:
         start_index = 1
         end_index = start_index + constants.TIMESTAMP_LENGTH
         parsed_message.timestamp = message[start_index:end_index]
-        parsed_message.payload = Message.parse_payload(message[end_index:])
-        parsed_message.timestamp = struct.unpack("!L", parsed_message.timestamp)[0]
+        parsed_message.payload = Message.str_to_tuple(message[end_index:])
+        parsed_message.timestamp = \
+        struct.unpack("!L", parsed_message.timestamp)[0]
 
         return parsed_message
 
@@ -174,7 +149,8 @@ class MessageParser:
         start_index = end_index
         end_index += constants.TIMESTAMP_LENGTH
         parsed_message.timestamp = struct.unpack("!L",
-                                                 message[start_index:end_index])[0]
+                                                 message[
+                                                 start_index:end_index])[0]
         parsed_message.payload = message[end_index:]
         return parsed_message
 
@@ -190,7 +166,8 @@ class MessageParser:
         start_index = end_index
         end_index += constants.TIMESTAMP_LENGTH
         parsed_message.timestamp = struct.unpack("!L",
-                                                 message[start_index:end_index])[0]
+                                                 message[
+                                                 start_index:end_index])[0]
         parsed_message.payload = message[end_index:]
         return parsed_message
 
@@ -207,11 +184,12 @@ class MessageParser:
                     0])
         end_index += constants.LEN_LENGTH + l
         parsed_message.sign = message[start_index:end_index]
-        parsed_message.sign = Message.parse_payload(parsed_message.sign)
+        parsed_message.sign = Message.str_to_tuple(parsed_message.sign)
         start_index = end_index
         end_index += constants.TIMESTAMP_LENGTH
         parsed_message.timestamp = struct.unpack("!L",
-                                                 message[start_index:end_index])[0]
+                                                 message[
+                                                 start_index:end_index])[0]
         parsed_message.payload = message[end_index:]
         return parsed_message
 
@@ -225,7 +203,8 @@ class MessageParser:
         start_index = end_index
         end_index += constants.TIMESTAMP_LENGTH
         parsed_message.timestamp = struct.unpack("!L",
-                                                 message[start_index:end_index])[0]
+                                                 message[
+                                                 start_index:end_index])[0]
         parsed_message.payload = message[end_index:]
         return parsed_message
 
@@ -239,7 +218,8 @@ class MessageParser:
         start_index = end_index
         end_index += constants.TIMESTAMP_LENGTH
         parsed_message.timestamp = struct.unpack("!L",
-                                                 message[start_index:end_index])[0]
+                                                 message[
+                                                 start_index:end_index])[0]
         parsed_message.payload = message[end_index:]
         return parsed_message
 
@@ -259,7 +239,8 @@ class MessageVerifer:
              constants.AES_KEY_LENGTH:constants.AES_KEY_LENGTH + constants.AES_IV_LENGTH]
         tag = dkey[constants.AES_IV_LENGTH + constants.AES_KEY_LENGTH:]
         dpayload = decrypt_payload(skey, iv, tag, payload)
-        return Message.parse_payload(dpayload)
+        return Message.str_to_tuple(dpayload)
+
 
 if __name__ == "__main__":
     msg_gen = MessageGenerator(None, None)

@@ -3,7 +3,7 @@ import sqlite3
 import sys
 
 import constants
-import user
+from ds import ServerUser
 from crypto import *
 
 
@@ -39,7 +39,7 @@ class UserDatabase:
         return self.__convert_row(self.c.fetchone())
 
     def __convert_row(self, row):
-        usr = user.ServerUser()
+        usr = ServerUser()
         print row
         usr.username = row[0]
         usr.pass_hash = bytes(row[1])

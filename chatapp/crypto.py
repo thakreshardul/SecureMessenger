@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives.ciphers import modes
 from cryptography.hazmat.primitives.constant_time import bytes_eq
 from cryptography.hazmat.primitives.kdf import pbkdf2
 
-import custom_exceptions as exceptions
+import chatapp.exception as exception
 
 
 # Generates Hash of Password on Client Side
@@ -28,7 +28,7 @@ def generate_client_hash_password(username, password):
 def verify_hash_password(client_hash, server_hash, salt):
     hopeful_hash = __salt_and_hash(client_hash, salt)
     if not bytes_eq(hopeful_hash, server_hash):
-        raise exceptions.PasswordMismatchException()
+        raise exception.PasswordMismatchException()
 
 
 # Generates Password Hash to be stored on Server
@@ -90,7 +90,7 @@ def verify_puzzle(ns, nc, x, d):
     h.update(nc)
     h.update(bytes(x))
     if not __is_first_k_zeros(h.finalize(), d):
-        raise exceptions.InvalidSolutionException()
+        raise exception.InvalidSolutionException()
 
 
 def encrypt_payload(skey, iv, payload):

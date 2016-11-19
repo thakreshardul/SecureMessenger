@@ -49,7 +49,7 @@ class Udp:
                 cv.wait()
             msg_addr = q.pop()
             self.handlers[MessageParser.get_message_type(msg_addr[0])](
-                self.obj_of_handlers, msg_addr)
+                self.obj_of_handlers, msg_addr[0], msg_addr[1])
             # self.handlers["Login"](self.obj_of_handlers, msg)
             cv.release()
 
