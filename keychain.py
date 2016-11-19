@@ -11,10 +11,10 @@ class ClientKeyChain:
         self.users = {}
 
     def add_user(self, user):
-        self.users[user.ip] = user
+        self.users[user.addr[0]] = user
 
     def get_user(self, user):
-        return self.users[user.ip]
+        return self.users[user.addr[0]]
 
 
 class ServerKeyChain:
@@ -23,7 +23,7 @@ class ServerKeyChain:
         self.users = {}
 
     def add_user(self, user):
-        self.users[user.ip] = user
+        self.users[user.addr[0]] = user
 
     def get_user(self, user):
-        return self.users[user.ip]
+        return self.users[user.addr[0]]

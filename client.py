@@ -1,10 +1,7 @@
-import os
-
-import constants
-from crypto import *
 from keychain import ClientKeyChain
-from message import MessageGenerator
+from message import *
 from network import *
+from user import *
 
 udp = Udp("127.0.0.1", 5000, 1)
 
@@ -19,6 +16,7 @@ class ChatClient:
         self.socket = udp.socket
         self.msg_gen = MessageGenerator(self.keychain.server_pub_key,
                                         self.keychain.private_key)
+        self.msg_parser = MessageParser()
 
     def login(self, username, password):
         self.username = username
@@ -43,16 +41,43 @@ class ChatClient:
         # Above Should be Replaced by Parser Code
         x = solve_puzzle(ns, nc, d)
         pub, priv = generate_dh_pair()
+        n1 = os.urandom(16)
         # Should Save Private Key
-        self.keychain.dh_keys[''] = priv
+        self.keychain.dh_keys[''] = (priv, n1)
         serialized_public = pub.public_bytes(
             encoding=serialization.Encoding.DER,
             format=serialization.PublicFormat.SubjectPublicKeyInfo)
+
+        msg = self.msg_gen.generate_solution_packet((nc, bytes(x)),
+                                                    self.username,
+                                                    serialized_public,
+                                                    n1)
         self.socket.sendto(
-            str(self.msg_gen.generate_solution_packet((nc, x), self.username,
-                                                      serialized_public,
-                                                      os.urandom(16))),
+            str(msg),
             (self.sip, self.sport))
+
+    @udp.endpoint("Server_DH")
+    def server_dh(self, msg_addr):
+        msg = msg_addr[0]
+        msg = self.msg_parser.parse_sign(msg)
+        ## Verify Signature
+        server_dh, n2, = Message.parse_payload(msg.payload)
+        server_dh = serialization.load_der_public_key(server_dh,
+                                                      backend=default_backend())
+        dh_priv, n1 = self.keychain.dh_keys['']
+        key = derive_symmetric_key(dh_priv, server_dh, n1, n2)
+        print "Shared Key", repr(key)
+        self.keychain.dh_keys[''] = None
+        user = ClientUser()
+        user.username = ""
+        user.key = key
+        user.addr = (self.sip, self.sport)
+        self.keychain.add_user(user)
+        serialized = self.keychain.public_key.public_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo)
+        print self.msg_gen.generate_password_packet(key, self.password,
+                                              serialized)
 
     def list(self):
         pass
@@ -64,5 +89,5 @@ class ChatClient:
 if __name__ == "__main__":
     client = ChatClient("127.0.0.1", 6000)
     udp.start(client)
-    for i in xrange(100000):
-        client.login("", "")
+    # for i in xrange(100000):
+    client.login("secure", "secret")

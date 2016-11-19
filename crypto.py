@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives.ciphers import modes
 from cryptography.hazmat.primitives.constant_time import bytes_eq
 from cryptography.hazmat.primitives.kdf import pbkdf2
 
-import exceptions
+import ChatApp.exceptions as exceptions
 
 
 # Generates Hash of Password on Client Side
@@ -89,7 +89,7 @@ def verify_puzzle(ns, nc, x, d):
     h.update(nc)
     h.update(bytes(x))
     if not __is_first_k_zeros(h.finalize(), d):
-        raise exceptions.InvalidSolutionException
+        raise exceptions.InvalidSolutionException()
 
 
 def encrypt_payload(skey, iv, payload):
@@ -98,6 +98,14 @@ def encrypt_payload(skey, iv, payload):
     encryptor.authenticate_additional_data("")  # Should Think About This
     ciphertext = encryptor.update(payload) + encryptor.finalize()
     return encryptor.tag, ciphertext
+
+
+def decrypt_payload(skey, iv, tag, payload):
+    decryptor = ciphers.Cipher(algorithms.AES(skey), mode=modes.GCM(iv, tag),
+                               backend=default_backend()).decryptor()
+    decryptor.authenticate_additional_data("")  # Should Think About This
+    plaintext = decryptor.update(payload) + decryptor.finalize()
+    return plaintext
 
 
 def encrypt_key(public_key, key):

@@ -5,8 +5,7 @@ class ServerUser:
         self.salt = None
         self.public_key = None
         self.key = None
-        self.ip = None
-        self.port = None
+        self.addr = None
 
 
 class ClientUser:
@@ -15,6 +14,5 @@ class ClientUser:
         self.public_key = None
         self.dh_public_key = None
         self.key = None
-        self.ip = None
-        self.port = None
+        self.addr = None
 

@@ -1,9 +1,16 @@
 class ChatException(Exception):
-    pass
+
+    def __init__(self):
+        pass
 
 
 class InvalidSolutionException(ChatException):
-    pass
+
+    def __init__(self):
+        pass
+
 
 class InvalidTimeStampException(ChatException):
-    pass
+
+    def __init__(self):
+        pass

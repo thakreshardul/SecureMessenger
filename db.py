@@ -1,8 +1,10 @@
 import sqlite3
+
 import constants
 import user
 
-#class db
+
+# class db
 #    init
 #    getuser(usrnm) -> user
 #    getusers() ->lou
@@ -24,14 +26,16 @@ class UserDatabase:
         self.conn.close()
 
     def create_db(self):
-        self.c.execute('CREATE TABLE IF NOT EXISTS userInfo (username text PRIMARY KEY, passhash text, salt text)')
+        self.c.execute(
+            'CREATE TABLE IF NOT EXISTS userInfo (username TEXT PRIMARY KEY, passhash TEXT, salt TEXT)')
         self.conn.commit()
 
     def get_user(self, usrname):
-        self.c.execute("SELECT * FROM userInfo WHERE  username='{0}'" .format(usrname))
+        self.c.execute(
+            "SELECT * FROM userInfo WHERE  username='{0}'".format(usrname))
         return self.__convert_row(self.c.fetchone()[0])
 
-    def __convert_row(self,row):
+    def __convert_row(self, row):
         usr = user.ServerUser()
         usr.username = row[0]
         usr.password = row[1]
@@ -48,8 +52,10 @@ class UserDatabase:
         self.c.execute(user_query_format)
         self.conn.commit()
 
+
 if __name__ == "__main__":
     with UserDatabase() as userdb:
         userdb.create_db()
-        print userdb.get_user("shardul2")
+        userdb.insert_user("secure", "secret", "evehjvbejhvr")
+        print userdb.get_user("secure")
     pass
