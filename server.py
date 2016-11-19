@@ -1,15 +1,8 @@
-import os
-import struct
 import threading
-import time
 
-import constants
-from crypto import *
 from db import UserDatabase
 from keychain import ServerKeyChain
-from message import MessageGenerator
-from message import MessageParser
-from message import MessageVerifer
+from message import *
 from network import Udp
 
 udp = Udp("127.0.0.1", 6000, 5)
@@ -73,8 +66,20 @@ class Server:
             self.keychain.add_user(usr)
         print "Shared Key", repr(key)
         self.socket.sendto(
-            str(self.msg_gen.generate_server_dh_packet(server_pub, n2)), msg_addr[1])
-        # print len(msg)
+            str(self.msg_gen.generate_server_dh_packet(server_pub, n2)),
+            msg_addr[1])
+
+    @udp.endpoint("Password")
+    def got_password(self, msg_addr):
+        msg = msg_addr[0]
+        msg = self.msg_ver.parse_key_sym(msg)
+        print "length", len(msg.key)
+        iv = msg.key[:constants.AES_IV_LENGTH]
+        tag = msg.key[constants.AES_IV_LENGTH:]
+        usr = self.keychain.get_user(msg_addr[1])
+        ts, pass_hash, pub_key = Message.parse_payload(
+            decrypt_payload(usr.key, iv, tag, msg.payload))
+        verify_hash_password(pass_hash, usr.pass_hash, usr.salt)
 
 
 if __name__ == "__main__":

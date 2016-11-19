@@ -1,7 +1,10 @@
+import os
 import sqlite3
+import sys
 
 import constants
 import user
+from crypto import *
 
 
 # class db
@@ -27,35 +30,39 @@ class UserDatabase:
 
     def create_db(self):
         self.c.execute(
-            'CREATE TABLE IF NOT EXISTS userInfo (username TEXT PRIMARY KEY, passhash TEXT, salt TEXT)')
+            'CREATE TABLE IF NOT EXISTS userInfo (username TEXT PRIMARY KEY, passhash BLOB, salt BLOB)')
         self.conn.commit()
 
     def get_user(self, usrname):
         self.c.execute(
             "SELECT * FROM userInfo WHERE  username='{0}'".format(usrname))
-        return self.__convert_row(self.c.fetchone()[0])
+        return self.__convert_row(self.c.fetchone())
 
     def __convert_row(self, row):
         usr = user.ServerUser()
+        print row
         usr.username = row[0]
-        usr.password = row[1]
-        usr.salt = row[2]
-        return user
+        usr.pass_hash = bytes(row[1])
+        usr.salt = bytes(row[2])
+        return usr
 
     def get_users(self):
         self.c.execute("SELECT * FROM userInfo")
         return [self.__convert_row(x) for x in self.c.fetchall()]
 
     def insert_user(self, uname, phash, salt):
-        user_query_format = "INSERT INTO userInfo VALUES ('{u}', '{p}', '{s}')".format(
-            u=uname, p=phash, s=salt)
-        self.c.execute(user_query_format)
+        user_query_format = "INSERT INTO userInfo VALUES (?,?,?)"
+        self.c.execute(user_query_format, [uname, sqlite3.Binary(phash),
+                       sqlite3.Binary(salt)])
         self.conn.commit()
 
 
 if __name__ == "__main__":
+    args = sys.argv
+    username = args[1]
+    password = args[2]
     with UserDatabase() as userdb:
         userdb.create_db()
-        userdb.insert_user("secure", "secret", "evehjvbejhvr")
-        print userdb.get_user("secure")
-    pass
+        salt = os.urandom(constants.NONCE_LENGTH)
+        pass_hash = generate_server_hash_password(username, password, salt)
+        userdb.insert_user(username, pass_hash, salt)

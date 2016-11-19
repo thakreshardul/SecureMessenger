@@ -62,8 +62,7 @@ class ChatClient:
         msg = self.msg_parser.parse_sign(msg)
         ## Verify Signature
         server_dh, n2, = Message.parse_payload(msg.payload)
-        server_dh = serialization.load_der_public_key(server_dh,
-                                                      backend=default_backend())
+        server_dh = convert_bytes_to_public_key(server_dh)
         dh_priv, n1 = self.keychain.dh_keys['']
         key = derive_symmetric_key(dh_priv, server_dh, n1, n2)
         print "Shared Key", repr(key)
@@ -73,11 +72,10 @@ class ChatClient:
         user.key = key
         user.addr = (self.sip, self.sport)
         self.keychain.add_user(user)
-        serialized = self.keychain.public_key.public_bytes(
-            encoding=serialization.Encoding.DER,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo)
-        print self.msg_gen.generate_password_packet(key, self.password,
-                                              serialized)
+        serialized = convert_public_key_to_bytes(self.keychain.public_key)
+        self.socket.sendto(
+            str(self.msg_gen.generate_password_packet(key, self.password,
+                                                      serialized)), msg_addr[1])
 
     def list(self):
         pass
@@ -90,4 +88,4 @@ if __name__ == "__main__":
     client = ChatClient("127.0.0.1", 6000)
     udp.start(client)
     # for i in xrange(100000):
-    client.login("secure", "secret")
+    client.login("secure", "secret1")

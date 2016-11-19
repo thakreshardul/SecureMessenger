@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives.ciphers import modes
 from cryptography.hazmat.primitives.constant_time import bytes_eq
 from cryptography.hazmat.primitives.kdf import pbkdf2
 
-import ChatApp.exceptions as exceptions
+import custom_exceptions as exceptions
 
 
 # Generates Hash of Password on Client Side
@@ -27,7 +27,8 @@ def generate_client_hash_password(username, password):
 # Verify Client Hash Password is correct
 def verify_hash_password(client_hash, server_hash, salt):
     hopeful_hash = __salt_and_hash(client_hash, salt)
-    return bytes_eq(hopeful_hash, server_hash)
+    if not bytes_eq(hopeful_hash, server_hash):
+        raise exceptions.PasswordMismatchException()
 
 
 # Generates Password Hash to be stored on Server
@@ -135,6 +136,15 @@ def sign_stuff(private_key, stuff):
             mgf=padding.MGF1(hashes.SHA512()),
             salt_length=padding.PSS.MAX_LENGTH), hashes.SHA512())
     return signature
+
+
+def convert_public_key_to_bytes(key):
+    return key.public_bytes(encoding=serialization.Encoding.DER,
+                            format=serialization.PublicFormat.SubjectPublicKeyInfo)
+
+
+def convert_bytes_to_public_key(bytes):
+    return serialization.load_der_public_key(bytes, backend=default_backend())
 
 
 def __is_first_k_zeros(str, k):

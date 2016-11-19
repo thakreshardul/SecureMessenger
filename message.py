@@ -99,7 +99,6 @@ class MessageGenerator:
         msg.payload = (username, dh_public_key, n1)
         msg = self.__encrypt_packet_with_pub(msg)
         msg.timestamp = self.__get_timestamp()
-        # msg = self.__sign_packet(msg) Shouldnt Sign Solution Packet
         return msg
 
     def generate_server_dh_packet(self, dh_public_key, n2):
@@ -153,11 +152,13 @@ class MessageParser:
     def parse_nokey_nosign(self, message):
         parsed_message = Message()
         parsed_message.type = ord(message[0])
+        parsed_message.key = ""
+        parsed_message.sign = ""
         start_index = 1
         end_index = start_index + constants.TIMESTAMP_LENGTH
         parsed_message.timestamp = message[start_index:end_index]
         parsed_message.payload = Message.parse_payload(message[end_index:])
-        parsed_message.timestamp = struct.unpack("!L", parsed_message.timestamp)
+        parsed_message.timestamp = struct.unpack("!L", parsed_message.timestamp)[0]
 
         return parsed_message
 
@@ -173,7 +174,7 @@ class MessageParser:
         start_index = end_index
         end_index += constants.TIMESTAMP_LENGTH
         parsed_message.timestamp = struct.unpack("!L",
-                                                 message[start_index:end_index])
+                                                 message[start_index:end_index])[0]
         parsed_message.payload = message[end_index:]
         return parsed_message
 
@@ -189,7 +190,7 @@ class MessageParser:
         start_index = end_index
         end_index += constants.TIMESTAMP_LENGTH
         parsed_message.timestamp = struct.unpack("!L",
-                                                 message[start_index:end_index])
+                                                 message[start_index:end_index])[0]
         parsed_message.payload = message[end_index:]
         return parsed_message
 
@@ -210,20 +211,21 @@ class MessageParser:
         start_index = end_index
         end_index += constants.TIMESTAMP_LENGTH
         parsed_message.timestamp = struct.unpack("!L",
-                                                 message[start_index:end_index])
+                                                 message[start_index:end_index])[0]
         parsed_message.payload = message[end_index:]
         return parsed_message
 
     def parse_sign(self, message):
         parsed_message = Message()
         parsed_message.type = ord(message[0])
+        parsed_message.key = ""
         start_index = 1
         end_index = start_index + constants.SIGNATURE_LENGTH
         parsed_message.sign = message[start_index:end_index]
         start_index = end_index
         end_index += constants.TIMESTAMP_LENGTH
         parsed_message.timestamp = struct.unpack("!L",
-                                                 message[start_index:end_index])
+                                                 message[start_index:end_index])[0]
         parsed_message.payload = message[end_index:]
         return parsed_message
 
@@ -233,10 +235,11 @@ class MessageParser:
         start_index = 1
         end_index = start_index + constants.AES_IV_LENGTH + constants.AES_TAG_LENGTH
         parsed_message.key = message[start_index:end_index]
+        parsed_message.sign = ""
         start_index = end_index
         end_index += constants.TIMESTAMP_LENGTH
         parsed_message.timestamp = struct.unpack("!L",
-                                                 message[start_index:end_index])
+                                                 message[start_index:end_index])[0]
         parsed_message.payload = message[end_index:]
         return parsed_message
 
