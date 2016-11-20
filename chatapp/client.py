@@ -2,8 +2,10 @@ from chatapp.keychain import ClientKeyChain
 from chatapp.message import *
 from chatapp.network import *
 from chatapp.ds import ClientUser
-
-udp = Udp("127.0.0.1", 5000, 1)
+import config
+config.load()
+conf = config.get_config()
+udp = Udp(conf.clientip, conf.clientport, 1)
 
 
 class ChatClient:
@@ -11,8 +13,8 @@ class ChatClient:
         self.sip = sip
         self.sport = sport
         self.keychain = ClientKeyChain(
-            open(constants.SERVER_PRIVATE_DER_FILE, 'r'),
-            open(constants.SERVER_PUBLIC_DER_FILE, 'r'))
+            open(constants.SERVER_PRIVATE_DER_FILE, 'rb'),
+            open(constants.SERVER_PUBLIC_DER_FILE, 'rb'))
         self.socket = udp.socket
         self.msg_gen = MessageGenerator(self.keychain.server_pub_key,
                                         self.keychain.private_key)

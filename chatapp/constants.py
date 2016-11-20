@@ -1,6 +1,8 @@
-SERVER_PRIVATE_DER_FILE = "priv.der"
-SERVER_PUBLIC_DER_FILE = "pub.der"
+#SERVER_PRIVATE_DER_FILE = "priv.der"
+#SERVER_PUBLIC_DER_FILE = "pub.der"
 
+SERVER_PRIVATE_DER_FILE = "private_key.der"
+SERVER_PUBLIC_DER_FILE = "public_key.der"
 
 SIGNATURE_LENGTH = 256
 EKEY_LENGTH = 256
@@ -13,3 +15,4 @@ TIMESTAMP_LENGTH = 4
 LEN_LENGTH = 2
 
 DB_LOCATION = "user.db"
+CONFIG_FILE = "config.json"
