@@ -2,42 +2,74 @@ import os
 import struct
 import time
 
-import constants
-from chatapp.utlities import
+import chatapp.constants as constants
+from chatapp.constants import message_dictionary, message_type
+from chatapp.utilities import get_timestamp
+from chatapp.utilities import tuple_to_str, str_to_tuple
 from crypto import *
-
-message_type = {
-    "Reject": 0,
-    "Login": 1,
-    "Puzzle": 2,
-    "Solution": 3,
-    "Server_DH": 4,
-    "Password": 5
-}
-
-message_dictionary = {
-    0: "Reject",
-    1: "Login",
-    2: "Puzzle",
-    3: "Solution",
-    4: "Server_DH",
-    5: "Password"
-}
 
 
 class Message:
-    def __init__(self):
-        self.type = 0
-        self.timestamp = None
-        self.key = None
-        self.sign = None
-        self.payload = None
+    def __init__(self, type, timestamp="", key="", sign="", payload=""):
+        self.type = type
+        self.timestamp = timestamp
+        self.key = key
+        self.sign = sign
+        self.payload = payload
 
     def __str__(self):
         type = struct.pack("!B", self.type)
         ts = struct.pack("!L", self.timestamp)
         return type + self.key + self.sign + ts + self.payload
 
+    def encrypt_packet_with_pub(self, dest_public_key):
+        skey = os.urandom(constants.AES_KEY_LENGTH)
+        iv = os.urandom(constants.AES_IV_LENGTH)
+        tag, ciphertext = encrypt_payload(skey, iv, tuple_to_str(self.payload))
+        self.payload = ciphertext
+        self.key = encrypt_key(dest_public_key, skey + iv + tag)
+
+    def encrypt_packet_with_skey(self, skey):
+        iv = os.urandom(constants.AES_IV_LENGTH)
+        tag, ciphertext = encrypt_payload(skey, iv, tuple_to_str(self.payload))
+        self.payload = ciphertext
+        self.key = iv + tag
+
+    def sign_packet(self, sender_private_key):
+        timestamp = struct.pack("!L", self.timestamp)
+        signature = sign_stuff(sender_private_key, timestamp + self.payload)
+        self.sign = signature
+
+
+class MessageConverter:
+    def __init__(self):
+        self.msg_to_str = {"Login": self.nokey_nosign,
+                           "Puzzle": self.nokey_nosign}
+
+    def convert(self, msg, dest_public_key, sender_private_key):
+        return self.msg_to_str[message_dictionary[msg.type]](msg,dest_public_key,
+                                                      sender_private_key)
+
+    def nokey_nosign(self, msg, dest_public_key, sender_private_key):
+        msg.timestamp = get_timestamp()
+        return msg
+
+    # Should Implement
+    def asym_key_with_sign(self, msg, dest_public_key, sender_private_key):
+        return msg
+
+    def sign(self, msg, dest_public_key, sender_private_key):
+        msg.payload = str_to_tuple(msg.payload)
+        msg.timestamp = get_timestamp()
+        msg.sign_packet(sender_private_key)
+        return msg
+
+    def sym_key(self, msg, skey, sender_private_key):
+        msg.payload = str_to_tuple(msg.payload)
+        msg.timestamp = get_timestamp()
+        msg.encrypt_packet_with_skey(skey)
+        msg.sign_packet(sender_private_key)
+        return msg
 
 class MessageGenerator:
     def __init__(self, dest_public_key, sender_private_key):
@@ -62,13 +94,13 @@ class MessageGenerator:
         msg.timestamp = self.__get_timestamp()
         msg.key = ""
         msg.sign = ""
-        msg.payload = Message.tuple_to_str(certificate)
+        msg.payload = tuple_to_str(certificate)
         return msg
 
     def generate_solution_packet(self, solution, username, dh_public_key, n1):
         msg = Message()
         msg.type = message_type["Solution"]
-        msg.sign = Message.tuple_to_str(solution)
+        msg.sign = tuple_to_str(solution)
         msg.payload = (username, dh_public_key, n1)
         msg = self.__encrypt_packet_with_pub(msg)
         msg.timestamp = self.__get_timestamp()
@@ -79,7 +111,7 @@ class MessageGenerator:
         msg.type = message_type["Server_DH"]
         msg.key = ""
         msg.payload = (dh_public_key, n2)
-        msg.payload = Message.tuple_to_str(msg.payload)
+        msg.payload = tuple_to_str(msg.payload)
         msg.timestamp = self.__get_timestamp()
         msg = self.__sign_packet(msg)
         return msg
@@ -96,16 +128,14 @@ class MessageGenerator:
     def __encrypt_packet_with_pub(self, msg):
         skey = os.urandom(constants.AES_KEY_LENGTH)
         iv = os.urandom(constants.AES_IV_LENGTH)
-        tag, ciphertext = encrypt_payload(skey, iv,
-                                          Message.tuple_to_str(msg.payload))
+        tag, ciphertext = encrypt_payload(skey, iv, tuple_to_str(msg.payload))
         msg.payload = ciphertext
         msg.key = encrypt_key(self.dest_public_key, skey + iv + tag)
         return msg
 
     def __encrypt_packet_with_skey(self, msg, skey):
         iv = os.urandom(constants.AES_IV_LENGTH)
-        tag, ciphertext = encrypt_payload(skey, iv,
-                                          Message.tuple_to_str(msg.payload))
+        tag, ciphertext = encrypt_payload(skey, iv, tuple_to_str(msg.payload))
         msg.payload = ciphertext
         msg.key = iv + tag
         return msg
@@ -131,9 +161,9 @@ class MessageParser:
         start_index = 1
         end_index = start_index + constants.TIMESTAMP_LENGTH
         parsed_message.timestamp = message[start_index:end_index]
-        parsed_message.payload = Message.str_to_tuple(message[end_index:])
+        parsed_message.payload = str_to_tuple(message[end_index:])
         parsed_message.timestamp = \
-        struct.unpack("!L", parsed_message.timestamp)[0]
+            struct.unpack("!L", parsed_message.timestamp)[0]
 
         return parsed_message
 
@@ -184,7 +214,7 @@ class MessageParser:
                     0])
         end_index += constants.LEN_LENGTH + l
         parsed_message.sign = message[start_index:end_index]
-        parsed_message.sign = Message.str_to_tuple(parsed_message.sign)
+        parsed_message.sign = str_to_tuple(parsed_message.sign)
         start_index = end_index
         end_index += constants.TIMESTAMP_LENGTH
         parsed_message.timestamp = struct.unpack("!L",
@@ -239,7 +269,7 @@ class MessageVerifer:
              constants.AES_KEY_LENGTH:constants.AES_KEY_LENGTH + constants.AES_IV_LENGTH]
         tag = dkey[constants.AES_IV_LENGTH + constants.AES_KEY_LENGTH:]
         dpayload = decrypt_payload(skey, iv, tag, payload)
-        return Message.str_to_tuple(dpayload)
+        return str_to_tuple(dpayload)
 
 
 if __name__ == "__main__":

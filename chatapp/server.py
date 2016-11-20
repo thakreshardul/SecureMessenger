@@ -1,6 +1,8 @@
 import threading
-from ds import Certificate
+
+from chatapp.utilities import send_msg
 from db import UserDatabase
+from ds import Certificate
 from keychain import ServerKeyChain
 from message import *
 from network import Udp
@@ -39,8 +41,9 @@ class Server:
 
     @udp.endpoint("Login")
     def got_login_packet(self, msg, addr):
-        ret_msg = self.msg_gen.generate_puzzle_response(self.certificate)
-        self.socket.sendto(str(ret_msg), addr)
+        msg = Message(message_type["Puzzle"],
+                      payload=tuple_to_str(self.certificate))
+        send_msg(self.socket, addr, msg)
 
     @udp.endpoint("Solution")
     def got_solution(self, msg, addr):
@@ -72,7 +75,7 @@ class Server:
         iv = msg.key[:constants.AES_IV_LENGTH]
         tag = msg.key[constants.AES_IV_LENGTH:]
         usr = self.keychain.get_user(msg_addr[1])
-        ts, pass_hash, pub_key = Message.str_to_tuple(
+        ts, pass_hash, pub_key = str_to_tuple(
             decrypt_payload(usr.key, iv, tag, msg.payload))
         verify_hash_password(pass_hash, usr.pass_hash, usr.salt)
         pub_key = convert_bytes_to_public_key(pub_key)

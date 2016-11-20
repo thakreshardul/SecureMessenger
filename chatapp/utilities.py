@@ -1,8 +1,9 @@
 import struct
+import time
+
 import constants
 
 
-@staticmethod
 def tuple_to_str(tuple):
     string = ""
     for param in tuple:
@@ -12,7 +13,7 @@ def tuple_to_str(tuple):
 
     return string
 
-@staticmethod
+
 def str_to_tuple(string):
     pl = []
     while True:
@@ -23,3 +24,11 @@ def str_to_tuple(string):
         pl.append(param)
         string = string[constants.LEN_LENGTH + header:]
     return tuple(pl)
+
+
+def send_msg(sender_socket, dest_addr, msg):
+    sender_socket.sendto(str(msg), dest_addr)
+
+
+def get_timestamp():
+    return long(time.time())

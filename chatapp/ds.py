@@ -4,6 +4,8 @@ from collections import namedtuple
 Certificate = namedtuple('Certificate',
                          ['timestamp', 'difficulty', 'nonce_s', 'sign'])
 
+Solution = namedtuple('Solution', ['nonce_c', 'x'])
+
 ServerUser = namedtuple('ServerUser',
                         ['username', 'pass_hash', 'salt', 'public_key', 'key',
                          'addr'])
