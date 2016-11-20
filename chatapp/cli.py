@@ -30,7 +30,7 @@ class TextInterface:
                 self.client.list()
             elif command[0] == "send":
                 self.client.send(command[1], command[2])
-            elif command[0] == "quit"
+            elif command[0] == "quit":
                 break
             else:
                 print ("Enter correct command")
