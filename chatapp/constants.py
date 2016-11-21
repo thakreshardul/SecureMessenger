@@ -20,7 +20,8 @@ message_type = {
     "Solution": 3,
     "Server_DH": 4,
     "Password": 5,
-    "Accept": 6
+    "Accept": 6,
+    "List": 7
 }
 
 message_dictionary = {
@@ -30,7 +31,8 @@ message_dictionary = {
     3: "Solution",
     4: "Server_DH",
     5: "Password",
-    6: "Accept"
+    6: "Accept",
+    7: "List"
 }
 
 client_stats = {

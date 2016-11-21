@@ -11,3 +11,4 @@ length is 2 bytes in the payload
 
 Need To Put checking of username and password as close as possible to prevent timing attack
 Check Ips to reduce spoofing
+Sanitization on Server Side
