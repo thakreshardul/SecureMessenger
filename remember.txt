@@ -8,3 +8,6 @@ parse for all types of payload
 payload is a tuple
 -- sent on socket as length | param
 length is 2 bytes in the payload
+
+Need To Put checking of username and password as close as possible to prevent timing attack
+Check Ips to reduce spoofing
