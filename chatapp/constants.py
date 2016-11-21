@@ -19,7 +19,8 @@ message_type = {
     "Puzzle": 2,
     "Solution": 3,
     "Server_DH": 4,
-    "Password": 5
+    "Password": 5,
+    "Accept": 6
 }
 
 message_dictionary = {
@@ -28,7 +29,8 @@ message_dictionary = {
     2: "Puzzle",
     3: "Solution",
     4: "Server_DH",
-    5: "Password"
+    5: "Password",
+    6: "Accept"
 }
 
 client_stats = {
@@ -36,10 +38,3 @@ client_stats = {
     "Logged_In": 1,
     "Log_In_Failed": 2
 }
-
-no_key_no_sign = {"Login", "Puzzle"}
-asym_key_with_sign = {}
-sign = {"Server_DH"}
-sym_key = {"Password"}
-sym_key_with_sign = {}
-asym_key_ans = {"Solution"}

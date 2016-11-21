@@ -72,6 +72,12 @@ class MessageConverter:
         msg.sign_packet(sender_private_key)
         return msg
 
+    def sym_key(self, msg, skey):
+        msg.payload = msg.payload
+        msg.encrypt_packet_with_skey(skey)
+        msg.timestamp = get_timestamp()
+        return msg
+
 
 class MessageParser:
     @staticmethod
@@ -190,16 +196,14 @@ class MessageProcessor:
         skey = key[:constants.AES_KEY_LENGTH]
         iv = key[
              constants.AES_KEY_LENGTH:constants.AES_KEY_LENGTH + constants.AES_IV_LENGTH]
-        tag = key[constants.AES_KEY_LENGTH+constants.AES_IV_LENGTH:]
+        tag = key[constants.AES_KEY_LENGTH + constants.AES_IV_LENGTH:]
         return skey, iv, tag
 
     def process_asym_key(self, msg, sender_private_key):
         key = decrypt_key(sender_private_key, msg.key)
         skey, iv, tag = self.__separate_sym_keys(key)
         dpayload = decrypt_payload(skey, iv, tag, msg.payload)
-        print repr(dpayload)
         msg.payload = str_to_tuple(dpayload)
-        print msg.payload
         return msg
 
     def process_sym_key(self, msg, skey):

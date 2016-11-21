@@ -4,7 +4,7 @@ import sys
 
 import constants
 from crypto import *
-from ds import ServerUser
+from user import ServerUser
 
 
 # class db
@@ -39,8 +39,10 @@ class UserDatabase:
         return self.__convert_row(self.c.fetchone())
 
     def __convert_row(self, row):
-        print row
-        usr = ServerUser(row[0], bytes(row[1]), bytes(row[2]), None, None, None)
+        usr = ServerUser()
+        usr.username = row[0]
+        usr.pass_hash = bytes(row[1])
+        usr.salt = bytes(row[2])
         return usr
 
     def get_users(self):
