@@ -4,7 +4,6 @@ from chatapp.network import *
 from chatapp.user import ClientUser
 from chatapp.utilities import send_msg
 from constants import client_stats, message_type
-from chatapp.ds import ClientUser
 import config
 config.load()
 conf = config.get_config()
