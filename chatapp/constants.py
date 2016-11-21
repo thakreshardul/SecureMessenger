@@ -31,7 +31,11 @@ message_dictionary = {
     5: "Password"
 }
 
-
+client_stats = {
+    "Not_Logged_In": 0,
+    "Logged_In": 1,
+    "Log_In_Failed": 2
+}
 
 no_key_no_sign = {"Login", "Puzzle"}
 asym_key_with_sign = {}

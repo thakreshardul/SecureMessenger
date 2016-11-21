@@ -3,6 +3,7 @@ from chatapp.keychain import ClientKeyChain
 from chatapp.message import *
 from chatapp.network import *
 from chatapp.utilities import send_msg
+from constants import client_stats, message_type
 
 udp = Udp("127.0.0.1", 5000, 1)
 
@@ -14,66 +15,55 @@ class ChatClient:
             open(constants.SERVER_PRIVATE_DER_FILE, 'r'),
             open(constants.SERVER_PUBLIC_DER_FILE, 'r'))
         self.socket = udp.socket
-        self.msg_gen = MessageGenerator(self.keychain.server_pub_key,
-                                        self.keychain.private_key)
         self.msg_parser = MessageParser()
+        self.converter = MessageConverter()
+        self.verifier = MessageVerifer()
+        self.processor = MessageProcessor()
         self.username = ""
         self.passhash = ""
-        self.state = "Not Logged In"
+        self.state = client_stats["Not_Logged_In"]
 
     def login(self, username, password):
-        self.state = "Not Logged In"
+        self.state = client_stats["Not_Logged_In"]
         self.username = username
-        # threading.Thread(target=self.__compute_pass_hash, args=(self,password)).start()
-        msg = Message(message_type['Login'])
-        converter = MessageConverter()
-        msg = converter.convert(msg, None, None)
+        msg = self.converter.nokey_nosign(Message(message_type['Login']))
         send_msg(self.socket, self.saddr, msg)
-
         self.passhash = generate_client_hash_password(self.username, password)
-        while self.state == "Not Logged In":
+        while self.state == client_stats["Not_Logged_In"]:
             pass
-        if self.state == "Failed":
+        if self.state == client_stats["Log_In_Failed"]:
             return False
         else:
             return True
 
     @udp.endpoint("Puzzle")
     def find_solution(self, msg, addr):
-        # import struct
-        # msg = msg_addr[0]
-        # i = 5
-        # t = []
-        # while i < len(msg):
-        #     l = struct.unpack("!H", msg[i:i + 2])[0]
-        #     t.append(msg[i + 2:i + 2 + l])
-        #     i += 2 + l
 
         msg = self.msg_parser.parse_nokey_nosign(msg)
+        msg = self.processor.process_certificate(msg)
 
-        ns = t[2]
+        self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+        self.verifier.verify_certificate(msg, self.keychain.server_pub_key)
+
+        ns = msg.payload.nonce_s
         nc = os.urandom(16)
-        d = ord(t[1])
-        # Above Should be Replaced by Parser Code
+        d = ord(msg.payload.difficulty)
         x = solve_puzzle(ns, nc, d)
         pub, priv = generate_dh_pair()
         n1 = os.urandom(16)
-        # Should Save Private Key
         self.keychain.dh_keys[''] = (priv, n1)
-        serialized_public = pub.public_bytes(
-            encoding=serialization.Encoding.DER,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo)
+        gamodp = convert_public_key_to_bytes(pub)
 
-        msg = self.msg_gen.generate_solution_packet((nc, bytes(x)),
-                                                    self.username,
-                                                    serialized_public,
-                                                    n1)
-        self.socket.sendto(
-            str(msg),
-            (self.sip, self.sport))
+        msg = Message(message_type['Solution'], sign=(nc, bytes(x)),
+                      payload=(self.username, gamodp, n1))
+        self.converter.asym_key(msg, self.keychain.server_pub_key)
+        print "Done"
+        send_msg(self.socket, self.saddr, msg)
 
     @udp.endpoint("Server_DH")
-    def server_dh(self, msg_addr):
+    def server_dh(self, msg, addr):
+        print msg
+        return
         msg = msg_addr[0]
         msg = self.msg_parser.parse_sign(msg)
         ## Verify Signature

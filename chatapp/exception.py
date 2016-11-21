@@ -16,3 +16,7 @@ class InvalidTimeStampException(ChatException):
 class PasswordMismatchException(ChatException):
     def __init__(self):
         pass
+
+class InvalidCertificateException(ChatException):
+    def __init__(self):
+        pass

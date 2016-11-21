@@ -3,8 +3,8 @@ import sqlite3
 import sys
 
 import constants
-from ds import ServerUser
 from crypto import *
+from ds import ServerUser
 
 
 # class db
@@ -39,11 +39,8 @@ class UserDatabase:
         return self.__convert_row(self.c.fetchone())
 
     def __convert_row(self, row):
-        usr = ServerUser()
         print row
-        usr.username = row[0]
-        usr.pass_hash = bytes(row[1])
-        usr.salt = bytes(row[2])
+        usr = ServerUser(row[0], bytes(row[1]), bytes(row[2]), None, None, None)
         return usr
 
     def get_users(self):
@@ -53,7 +50,7 @@ class UserDatabase:
     def insert_user(self, uname, phash, salt):
         user_query_format = "INSERT INTO userInfo VALUES (?,?,?)"
         self.c.execute(user_query_format, [uname, sqlite3.Binary(phash),
-                       sqlite3.Binary(salt)])
+                                           sqlite3.Binary(salt)])
         self.conn.commit()
 
 

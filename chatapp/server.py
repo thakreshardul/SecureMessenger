@@ -1,8 +1,9 @@
 import threading
+import time
 
 from chatapp.utilities import send_msg
+from constants import message_type
 from db import UserDatabase
-from ds import Certificate
 from keychain import ServerKeyChain
 from message import *
 from network import Udp
@@ -18,9 +19,10 @@ class Server:
         self.keychain = ServerKeyChain(
             open(constants.SERVER_PRIVATE_DER_FILE, 'r'),
             open(constants.SERVER_PUBLIC_DER_FILE, 'r'))
-        self.msg_gen = MessageGenerator(self.keychain.public_key,
-                                        self.keychain.private_key)
         self.msg_parser = MessageParser()
+        self.converter = MessageConverter()
+        self.processor = MessageProcessor()
+        self.verifier = MessageVerifer()
         self.certificate = None
         UserDatabase().create_db()
         self.puz_thread = threading.Thread(
@@ -31,42 +33,45 @@ class Server:
         while True:
             t1 = time.time()
             ns = os.urandom(16)
-            d = chr(2)
+            d = chr(1)
             expiry_time = long(t1 + 60)
             packed_t = struct.pack("!L", expiry_time)
             sign = sign_stuff(self.keychain.private_key, packed_t + d + ns)
             self.certificate = Certificate(packed_t, d, ns, sign)
-            print self.certificate
             time.sleep(60)
 
     @udp.endpoint("Login")
     def got_login_packet(self, msg, addr):
         msg = Message(message_type["Puzzle"],
-                      payload=tuple_to_str(self.certificate))
+                      payload=self.certificate)
+        msg = self.converter.nokey_nosign(msg)
         send_msg(self.socket, addr, msg)
 
     @udp.endpoint("Solution")
     def got_solution(self, msg, addr):
         msg = self.msg_parser.parse_key_asym_ans(msg)
-        verifier = MessageVerifer(None, self.keychain.private_key)
-        verifier.verify_solution(self.certificate.nonce_s,
-                                 ord(self.certificate.difficulty),
-                                 msg.sign[0], msg.sign[1])
-        username, user_dh_key, n1 = verifier.decrypt_payload(msg.key,
-                                                             msg.payload)
-        user_dh_key = convert_bytes_to_public_key(user_dh_key)
-        server_pub, server_priv = generate_dh_pair()
-        server_pub = convert_public_key_to_bytes(server_pub)
+        self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+        msg = self.processor.process_ans(msg, self.certificate.nonce_s,
+                                         ord(self.certificate.difficulty),
+                                         self.keychain.private_key)
+        print msg.payload
+        username, gamodp, n1 = msg.payload
+        gamodp = convert_bytes_to_public_key(gamodp)
+
+        gbmodp, b = generate_dh_pair()
+        gbmodp = convert_public_key_to_bytes(gbmodp)
         n2 = os.urandom(constants.NONCE_LENGTH)
-        key = derive_symmetric_key(server_priv, user_dh_key, n1, n2)
+        key = derive_symmetric_key(b, gamodp, n1, n2)
+
         with UserDatabase() as db:
             usr = db.get_user(username)
             usr.key = key
-            usr.addr = msg_addr[1]
+            usr.addr = addr
             self.keychain.add_user(usr)
-        self.socket.sendto(
-            str(self.msg_gen.generate_server_dh_packet(server_pub, n2)),
-            msg_addr[1])
+
+        msg = Message(message_type["Server_DH"], payload=(gbmodp, n2))
+        msg = self.converter.sign(msg, self.keychain.private_key)
+        send_msg(self.socket, addr, msg)
 
     @udp.endpoint("Password")
     def got_password(self, msg_addr):

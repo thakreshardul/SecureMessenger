@@ -138,6 +138,15 @@ def sign_stuff(private_key, stuff):
     return signature
 
 
+def verify_sign(sign, stuff, public_key):
+    public_key.verify(
+        sign,
+        stuff,
+        padding.PSS(
+            mgf=padding.MGF1(hashes.SHA512()),
+            salt_length=padding.PSS.MAX_LENGTH), hashes.SHA512())
+
+
 def convert_public_key_to_bytes(key):
     return key.public_bytes(encoding=serialization.Encoding.DER,
                             format=serialization.PublicFormat.SubjectPublicKeyInfo)
