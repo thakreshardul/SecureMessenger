@@ -4,16 +4,19 @@ from chatapp.network import *
 from chatapp.user import ClientUser
 from chatapp.utilities import send_msg
 from constants import client_stats, message_type
-
-udp = Udp("127.0.0.1", 5000, 1)
+from chatapp.ds import ClientUser
+import config
+config.load()
+conf = config.get_config()
+udp = Udp(conf.clientip, conf.clientport, 1)
 
 
 class ChatClient:
     def __init__(self, saddr):
         self.saddr = saddr
         self.keychain = ClientKeyChain(
-            open(constants.SERVER_PRIVATE_DER_FILE, 'r'),
-            open(constants.SERVER_PUBLIC_DER_FILE, 'r'))
+            open(constants.SERVER_PRIVATE_DER_FILE, 'rb'),
+            open(constants.SERVER_PUBLIC_DER_FILE, 'rb'))
         self.socket = udp.socket
         self.msg_parser = MessageParser()
         self.converter = MessageConverter()

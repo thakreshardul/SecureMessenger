@@ -12,6 +12,7 @@ TIMESTAMP_LENGTH = 4
 LEN_LENGTH = 2
 
 DB_LOCATION = "user.db"
+CONFIG_FILE = "config.json"
 
 message_type = {
     "Reject": 0,
