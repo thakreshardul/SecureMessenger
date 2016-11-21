@@ -1,3 +1,4 @@
+from cryptography.exceptions import InvalidSignature, InvalidTag
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import ciphers
 from cryptography.hazmat.primitives import hashes
@@ -102,11 +103,14 @@ def encrypt_payload(skey, iv, payload):
 
 
 def decrypt_payload(skey, iv, tag, payload):
-    decryptor = ciphers.Cipher(algorithms.AES(skey), mode=modes.GCM(iv, tag),
-                               backend=default_backend()).decryptor()
-    decryptor.authenticate_additional_data("")  # Should Think About This
-    plaintext = decryptor.update(payload) + decryptor.finalize()
-    return plaintext
+    try:
+        decryptor = ciphers.Cipher(algorithms.AES(skey), mode=modes.GCM(iv, tag),
+                                   backend=default_backend()).decryptor()
+        decryptor.authenticate_additional_data("")  # Should Think About This
+        plaintext = decryptor.update(payload) + decryptor.finalize()
+        return plaintext
+    except InvalidTag:
+        raise exception.InvalidTagException
 
 
 def encrypt_key(public_key, key):
@@ -139,12 +143,15 @@ def sign_stuff(private_key, stuff):
 
 
 def verify_sign(sign, stuff, public_key):
-    public_key.verify(
-        sign,
-        stuff,
-        padding.PSS(
-            mgf=padding.MGF1(hashes.SHA512()),
-            salt_length=padding.PSS.MAX_LENGTH), hashes.SHA512())
+    try:
+        public_key.verify(
+            sign,
+            stuff,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA512()),
+                salt_length=padding.PSS.MAX_LENGTH), hashes.SHA512())
+    except InvalidSignature:
+        raise exception.InvalidSignatureException()
 
 
 def convert_public_key_to_bytes(key):

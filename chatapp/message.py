@@ -26,7 +26,6 @@ class Message:
         skey = os.urandom(constants.AES_KEY_LENGTH)
         iv = os.urandom(constants.AES_IV_LENGTH)
         tag, ciphertext = encrypt_payload(skey, iv, tuple_to_str(self.payload))
-        print len(skey), len(iv), len(tag)
         self.payload = ciphertext
         self.key = encrypt_key(dest_public_key, skey + iv + tag)
 

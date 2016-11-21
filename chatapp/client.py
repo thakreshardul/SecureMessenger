@@ -58,7 +58,7 @@ class ChatClient:
                           payload=(self.username, gamodp, n1))
             self.converter.asym_key(msg, self.keychain.server_pub_key)
             send_msg(self.socket, self.saddr, msg)
-        except exception.ChatException as e:
+        except exception.SecurityException as e:
             print str(e)
             self.state = client_stats["Log_In_Failed"]
 
@@ -97,7 +97,7 @@ class ChatClient:
             msg = self.converter.sym_key(msg, key)
             msg.timestamp = ts
             send_msg(self.socket, self.saddr, msg)
-        except exception.ChatException as e:
+        except exception.SecurityException as e:
             print str(e)
             self.state = client_stats["Log_In_Failed"]
 
@@ -109,7 +109,7 @@ class ChatClient:
                 self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
                 self.verifier.verify_signature(msg, self.keychain.server_pub_key)
                 self.state = client_stats["Logged_In"]
-        except exception.ChatException as e:
+        except exception.SecurityException as e:
             print str(e)
             self.state = client_stats["Log_In_Failed"]
 
@@ -121,7 +121,7 @@ class ChatClient:
                 self.verifier.verify_timestamp(msg,get_timestamp() - 5000)
                 self.verifier.verify_signature(msg,self.keychain.server_pub_key)
                 self.state = client_stats["Log_In_Failed"]
-        except exception.ChatException as e:
+        except exception.SecurityException as e:
             print str(e)
             self.state = client_stats["Log_In_Failed"]
 
@@ -136,4 +136,4 @@ if __name__ == "__main__":
     client = ChatClient(("127.0.0.1", 6000))
     udp.start(client)
     # for i in xrange(100000):
-    print client.login("secure", "secret1")
+    print client.login("secure", "secret")

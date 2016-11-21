@@ -26,5 +26,4 @@ class ServerKeyChain:
         self.users[user.addr] = user
 
     def get_user(self, addr):
-        print self.users
         return self.users[addr]

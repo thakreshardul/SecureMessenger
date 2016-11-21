@@ -72,7 +72,7 @@ class Server:
             msg = Message(message_type["Server_DH"], payload=(gbmodp, n2))
             msg = self.converter.sign(msg, self.keychain.private_key)
             send_msg(self.socket, addr, msg)
-        except exception.ChatException as e:
+        except exception.SecurityException as e:
             print str(e)
             msg = Message(message_type["Reject"])
             msg = self.converter.sign(msg, self.keychain.private_key)
@@ -104,7 +104,7 @@ class Server:
             msg = Message(message_type["Accept"])
             msg = self.converter.sign(msg, self.keychain.private_key)
             send_msg(self.socket, usr.addr, msg)
-        except exception.ChatException as e:
+        except exception.SecurityException as e:
             print str(e)
             msg = Message(message_type["Reject"])
             msg = self.converter.sign(msg, self.keychain.private_key)
