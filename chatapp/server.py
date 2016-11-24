@@ -47,6 +47,7 @@ class Server:
         msg = self.converter.nokey_nosign(msg)
         send_msg(self.socket, addr, msg)
 
+
     @udp.endpoint("Solution")
     def got_solution(self, msg, addr):
         try:
@@ -82,7 +83,6 @@ class Server:
     def got_password(self, msg, addr):
         try:
             msg = self.msg_parser.parse_key_sym(msg)
-
             self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
             usr = self.keychain.get_user(addr)
             msg = self.processor.process_sym_key(msg, usr.key)
@@ -109,6 +109,17 @@ class Server:
             msg = Message(message_type["Reject"])
             msg = self.converter.sign(msg, self.keychain.private_key)
             send_msg(self.socket, addr, msg)
+
+    @udp.endpoint("Logout")
+    def got_logout_packet(self, msg, addr):
+        try:
+            msg = self.msg_parser.parse_key_sym_sign(msg)
+            self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+            usr = self.keychain.get_user(addr)
+            self.verifier.verify_signature(msg, usr.public_key)
+            msg = self.processor.process_sym_key(msg, usr.key)
+        except exception.SecurityException as e:
+            print str(e)
 
 
 if __name__ == "__main__":

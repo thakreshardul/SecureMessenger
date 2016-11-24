@@ -22,7 +22,8 @@ message_type = {
     "Server_DH": 4,
     "Password": 5,
     "Accept": 6,
-    "List": 7
+    "List": 7,
+    "Logout": 8
 }
 
 message_dictionary = {
@@ -33,7 +34,8 @@ message_dictionary = {
     4: "Server_DH",
     5: "Password",
     6: "Accept",
-    7: "List"
+    7: "List",
+    8: "Logout"
 }
 
 client_stats = {
