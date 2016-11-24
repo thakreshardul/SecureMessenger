@@ -17,8 +17,8 @@ class Server:
         self.port = port
         self.socket = udp.socket
         self.keychain = ServerKeyChain(
-            open(constants.SERVER_PRIVATE_DER_FILE, 'r'),
-            open(constants.SERVER_PUBLIC_DER_FILE, 'r'))
+            open(constants.SERVER_PRIVATE_DER_FILE, 'rb'),
+            open(constants.SERVER_PUBLIC_DER_FILE, 'rb'))
         self.msg_parser = MessageParser()
         self.converter = MessageConverter()
         self.processor = MessageProcessor()

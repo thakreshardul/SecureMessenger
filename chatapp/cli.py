@@ -12,7 +12,7 @@ class TextInterface:
 
     def login(self):
         while True:
-            usernm = raw_input("Enter your user name->\n")
+            usernm = raw_input("Enter your user name:\n")
             passwd = getpass.getpass("Enter your password:\n")
             if self.client.login(usernm, passwd):
                 print ("Successfully Logged in")
@@ -22,18 +22,17 @@ class TextInterface:
 
     def start(self):
         while True:
-            command = raw_input("""Enter a command:
-             1. list
-             2. send <USER> <MESSAGE>
-             3. quit\n""")
-            if command[0] == "list":
+            command = raw_input("""Enter a command:\n1. list\n2. send <USER> <MESSAGE>\n3. quit\n""")
+            userinput = command.split(" ")
+            if userinput[0] == "list":
                 self.client.list()
-            elif command[0] == "send":
-                self.client.send(command[1], command[2])
-            elif command[0] == "quit":
+            elif userinput[0] == "send":
+                self.client.send(userinput[1], userinput[2])
+            elif userinput[0] == "quit":
+                print ("Quitting the application\n")
                 break
             else:
-                print ("Enter correct command")
+                print ("Enter correct command\n")
 
 
 if __name__ == "__main__":
