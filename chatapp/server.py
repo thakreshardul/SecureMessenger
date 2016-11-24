@@ -116,8 +116,12 @@ class Server:
             msg = self.msg_parser.parse_key_sym_sign(msg)
             self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
             usr = self.keychain.get_user(addr)
+            if usr is None:
+                print "Exception"       #Raise exception
             self.verifier.verify_signature(msg, usr.public_key)
             msg = self.processor.process_sym_key(msg, usr.key)
+            if msg == "LOGOUT":
+                self.keychain.remove_user(usr)
         except exception.SecurityException as e:
             print str(e)
 

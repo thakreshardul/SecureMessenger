@@ -29,6 +29,7 @@ class TextInterface:
             elif userinput[0] == "send":
                 self.client.send(userinput[1], userinput[2])
             elif userinput[0] == "quit":
+                self.client.logout()
                 print ("Quitting the application\n")
                 break
             else:

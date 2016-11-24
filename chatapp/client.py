@@ -40,7 +40,7 @@ class ChatClient:
 
     def logout(self):
         if self.state == client_stats["Logged_In"]:
-            msg = Message(message_type['Logout'], payload=(self.username, "LOGOUT"))
+            msg = Message(message_type['Logout'], payload="LOGOUT")
             usr = self.keychain.get_user(self.saddr)
             msg = self.converter.sym_key_with_sign(msg, usr.key, self.keychain.private_key)
             send_msg(self.socket, self.saddr, msg)
