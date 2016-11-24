@@ -7,13 +7,13 @@ import client
 
 class TextInterface:
     def __init__(self):
-        self.client = client.ChatClient(conf.serverip, conf.serverport)
+        self.client = client.ChatClient((conf.serverip, conf.serverport))
         client.udp.start(self.client)
 
     def login(self):
         while True:
-            usernm = raw_input("Enter your user name-> ")
-            passwd = getpass.getpass("Enter your password: ")
+            usernm = raw_input("Enter your user name->\n")
+            passwd = getpass.getpass("Enter your password:\n")
             if self.client.login(usernm, passwd):
                 print ("Successfully Logged in")
                 break
@@ -25,7 +25,7 @@ class TextInterface:
             command = raw_input("""Enter a command:
              1. list
              2. send <USER> <MESSAGE>
-             3. quit""")
+             3. quit\n""")
             if command[0] == "list":
                 self.client.list()
             elif command[0] == "send":

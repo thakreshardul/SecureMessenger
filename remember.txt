@@ -1,14 +1,17 @@
-for puzzles,
-we don't verify the packet
-during the parse pl phase, we check signature and then verify the expiration time of the cert with timestamp of the client
-
-parse for 6 types of packets (photo)
-parse for all types of payload
-
-payload is a tuple
--- sent on socket as length | param
-length is 2 bytes in the payload
 
 Need To Put checking of username and password as close as possible to prevent timing attack
 Check Ips to reduce spoofing
-Sanitization on Server Side
+Sanitization on Server Side (SQL Injection)
+Check Username if exists or not
+Testing with modified packets
+Checking nonce c in puzzle
+Guarding Against Packet Malforms
+Guarding Against In Between Protocol Packet Receiving
+Man in the Middle Password Attack
+Sqlite Encryption
+
+List Implementation
+Send Implementation
+Heartbeat Implementation
+Logout Implementation
+Completion of Text Interface
