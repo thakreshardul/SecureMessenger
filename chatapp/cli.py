@@ -1,6 +1,12 @@
-import config
 import getpass
-config.load()
+import sys
+
+import config
+
+if len(sys.argv) == 2:
+    config.load(sys.argv[1])
+else:
+    config.load()
 conf = config.get_config()
 import client
 
@@ -22,15 +28,14 @@ class TextInterface:
 
     def start(self):
         while True:
-            command = raw_input("""Enter a command:
-             1. list
-             2. send <USER> <MESSAGE>
-             3. quit\n""")
-            if command[0] == "list":
+            command = raw_input(
+                "Enter a command:\n1. list\n2. send <USER> <MESSAGE>\n3. quit\n")
+            parts = command.split(" ")
+            if parts[0] == "list":
                 self.client.list()
-            elif command[0] == "send":
-                self.client.send(command[1], command[2])
-            elif command[0] == "quit":
+            elif parts[0] == "send":
+                self.client.send(parts[1], parts[2])
+            elif parts[0] == "quit":
                 break
             else:
                 print ("Enter correct command")

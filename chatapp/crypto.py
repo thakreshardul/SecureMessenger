@@ -155,8 +155,8 @@ def verify_sign(sign, stuff, public_key):
 
 
 def convert_public_key_to_bytes(key):
-    return key.public_bytes(encoding=serialization.Encoding.DER,
-                            format=serialization.PublicFormat.SubjectPublicKeyInfo)
+    return bytes(key.public_bytes(encoding=serialization.Encoding.DER,
+                            format=serialization.PublicFormat.SubjectPublicKeyInfo))
 
 
 def convert_bytes_to_public_key(bytes):

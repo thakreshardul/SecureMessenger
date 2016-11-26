@@ -5,7 +5,7 @@ from chatapp.user import ClientUser
 from chatapp.utilities import send_msg
 from constants import client_stats, message_type
 import config
-config.load()
+
 conf = config.get_config()
 udp = Udp(conf.clientip, conf.clientport, 1)
 

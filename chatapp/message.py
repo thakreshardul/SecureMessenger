@@ -65,14 +65,12 @@ class MessageConverter:
         return msg
 
     def sym_key_with_sign(self, msg, skey, sender_private_key):
-        msg.payload = tuple_to_str(msg.payload)
         msg.encrypt_packet_with_skey(skey)
         msg.timestamp = get_timestamp()
         msg.sign_packet(sender_private_key)
         return msg
 
     def sym_key(self, msg, skey):
-        msg.payload = msg.payload
         msg.encrypt_packet_with_skey(skey)
         msg.timestamp = get_timestamp()
         return msg

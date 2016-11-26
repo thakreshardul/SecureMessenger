@@ -110,6 +110,44 @@ class Server:
             msg = self.converter.sign(msg, self.keychain.private_key)
             send_msg(self.socket, addr, msg)
 
+    @udp.endpoint("List")
+    def got_list_request(self, msg, addr):
+        msg = self.msg_parser.parse_key_sym_sign(msg)
+
+        usr = self.keychain.get_user(addr)
+        self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+        if usr.public_key is None:
+            # Should Remove Signature
+            msg = Message(message_type["Reject"])
+            msg = self.converter.sign(msg, self.keychain.private_key)
+            send_msg(self.socket, addr, msg)
+            return
+
+        self.verifier.verify_signature(msg, usr.public_key)
+
+        msg = self.processor.process_sym_key(msg, usr.key)
+        request = msg.payload
+
+        if request[0] != usr.username:
+            pass  # Raise HELL!!
+
+        if request[1] == "*":
+            payload = []
+            users = self.keychain.users
+            for v in users.itervalues():
+                if v.username != usr.username:
+                    adr = v.addr[0] + ":" + str(v.addr[1])
+                    username = v.username
+                    pk = convert_public_key_to_bytes(v.public_key)
+                    payload.append((username, adr, pk))
+
+            payload = [tuple_to_str(t) for t in payload]
+        else:
+            users = self.keychain.users
+            for user in users.itervalues():
+                if user.username == request[1]:
+                    payload = (user.username, user.addr ,)
+
 
 if __name__ == "__main__":
     server = Server("127.0.0.1", 6000)
