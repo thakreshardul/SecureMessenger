@@ -17,6 +17,9 @@ class Udp:
         self.threads = []
         self.current_thread = 0
         self.obj_of_handlers = None
+        self.msg_addr_for_waiter = ""
+        self.cv_for_waiter = threading.Condition()
+        self.waiting = False
 
     def start(self, self_obj):
         self.obj_of_handlers = self_obj
@@ -30,6 +33,18 @@ class Udp:
 
         listener_thread = threading.Thread(target=self.__recv_message)
         listener_thread.start()
+
+    def recv(self, timeout):
+        self.waiting = True
+        self.cv_for_waiter.wait(timeout)
+        self.waiting = False
+        if self.msg_addr_for_waiter == "":
+            self.cv_for_waiter.release()
+            raise socket.timeout()
+        msg_addr = self.msg_addr_for_waiter
+        self.msg_addr_for_waiter = ""
+        self.cv_for_waiter.release()
+        return msg_addr
 
     def __recv_message(self):
         while True:
@@ -48,10 +63,17 @@ class Udp:
             if len(q) == 0:
                 cv.wait()
             msg_addr = q.pop()
-            self.handlers[MessageParser.get_message_type(msg_addr[0])](
-                self.obj_of_handlers, msg_addr[0], msg_addr[1])
-            # self.handlers["Login"](self.obj_of_handlers, msg)
             cv.release()
+            try:
+                self.handlers[MessageParser.get_message_type(msg_addr[0])](
+                    self.obj_of_handlers, msg_addr[0], msg_addr[1])
+            except KeyError:
+                self.cv_for_waiter.acquire()
+                if self.waiting:
+                    self.msg_addr_for_waiter = msg_addr
+                    self.cv_for_waiter.notify()
+
+                self.cv_for_waiter.release()
 
     def endpoint(self, msg_type):
         def decorator(func):

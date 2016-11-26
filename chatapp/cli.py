@@ -32,7 +32,8 @@ class TextInterface:
             command = raw_input()
             userinput = command.split(" ")
             if userinput[0] == "list":
-                self.client.list()
+                l = self.client.list()
+                print " ".join(l)
             elif userinput[0] == "send":
                 self.client.send(userinput[1], userinput[2])
             elif userinput[0] == "quit":

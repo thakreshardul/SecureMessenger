@@ -1,3 +1,4 @@
+import socket
 import struct
 import time
 
@@ -29,6 +30,12 @@ def str_to_tuple(string):
 
 def send_msg(sender_socket, dest_addr, msg):
     sender_socket.sendto(str(msg), dest_addr)
+
+
+def send_recv_msg(sender_socket, recv_udp, dest_addr, msg):
+    recv_udp.cv_for_waiter.acquire()
+    sender_socket.sendto(str(msg), dest_addr)
+    return recv_udp.recv(5)
 
 
 def get_timestamp():
