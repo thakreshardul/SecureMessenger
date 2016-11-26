@@ -48,8 +48,10 @@ class MessageConverter:
         msg.timestamp = get_timestamp()
         return msg
 
-    # Should Implement
     def asym_key_with_sign(self, msg, dest_public_key, sender_private_key):
+        msg.encrypt_packet_with_pub(dest_public_key)
+        msg.timestamp = get_timestamp()
+        msg.sign_packet(sender_private_key)
         return msg
 
     def asym_key(self, msg, dest_public_key):

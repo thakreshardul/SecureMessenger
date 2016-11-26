@@ -3,7 +3,8 @@ from chatapp.keychain import ClientKeyChain
 from chatapp.message import *
 from chatapp.network import *
 from chatapp.user import ClientUser
-from chatapp.utilities import send_msg, send_recv_msg
+from chatapp.utilities import send_msg, send_recv_msg, convert_bytes_to_addr, \
+    convert_addr_to_bytes
 from constants import client_stats, message_type
 
 conf = config.get_config()
@@ -51,12 +52,11 @@ class ChatClient:
     def logout(self):
         if self.state == client_stats["Logged_In"]:
             msg = Message(message_type['Logout'], payload=("LOGOUT"))
-            usr = self.keychain.get_user(self.saddr)
+            usr = self.keychain.get_user_with_addr(self.saddr)
             msg = self.converter.sym_key_with_sign(msg, usr.key,
                                                    self.keychain.private_key)
             send_msg(self.socket, self.saddr, msg)
 
-    # @udp.endpoint("Puzzle")
     def find_solution(self, msg, addr):
         try:
             msg = self.msg_parser.parse_nokey_nosign(msg)
@@ -83,7 +83,6 @@ class ChatClient:
             print str(e)
             self.state = client_stats["Log_In_Failed"]
 
-    # @udp.endpoint("Server_DH")
     def server_dh(self, msg, addr):
         try:
             msg = self.msg_parser.parse_sign(msg)
@@ -119,7 +118,6 @@ class ChatClient:
             print str(e)
             self.state = client_stats["Log_In_Failed"]
 
-    # @udp.endpoint("Accept")
     def got_accept(self, msg, addr):
         try:
             if addr == self.saddr:
@@ -133,7 +131,6 @@ class ChatClient:
             print str(e)
             self.state = client_stats["Log_In_Failed"]
 
-    # @udp.endpoint("Reject")
     def got_reject(self, msg, addr):
         try:
             if self.state == client_stats[
@@ -146,25 +143,150 @@ class ChatClient:
             print str(e)
             self.state = client_stats["Log_In_Failed"]
 
-    # @udp.endpoint("List")
     def got_list_response(self, msg, addr):
         msg = self.msg_parser.parse_key_sym_sign(msg)
         self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
         self.verifier.verify_signature(msg, self.keychain.server_pub_key)
-        server = self.keychain.get_user(self.saddr)
+        server = self.keychain.get_user_with_addr(self.saddr)
         msg = self.processor.process_sym_key(msg, server.key)
-        return list(msg.payload)
+        return msg.payload
 
-    def list(self, username="*"):
-        msg = Message(message_type["List"], payload=(self.username, username))
-        usr = self.keychain.get_user(self.saddr)
+    @udp.endpoint("Sender_Client_DH")
+    def got_sender_client_dh(self, msg, addr):
+        msg = self.msg_parser.parse_key_asym_sign(msg)
+
+        user = self.keychain.get_user_with_addr(addr)
+
+        if user is None:
+            user = self.__get_missing_user_with_addr(addr)
+
+        self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+        self.verifier.verify_signature(msg, user.public_key)
+
+        msg = self.processor.process_asym_key(msg, self.keychain.private_key)
+        sender, dest, n1, gamodp = msg.payload
+
+        gamodp = convert_bytes_to_public_key(gamodp)
+
+        if sender != user.username:
+            pass  # Raise Hell!!
+
+        if self.username != dest:
+            pass  # Raise HELL!!
+
+        n2 = os.urandom(constants.NONCE_LENGTH)
+        public_key, private_key = generate_dh_pair()
+        key = derive_symmetric_key(private_key, gamodp, n1, n2)
+        user.key = key
+
+        msg = Message(message_type["Dest_Client_DH"], payload=(
+            self.username, sender, n2, convert_public_key_to_bytes(public_key)))
+
+        msg = self.converter.asym_key_with_sign(msg, user.public_key,
+                                                self.keychain.private_key)
+
+        send_msg(self.socket, user.addr, msg)
+
+    @udp.endpoint("Message")
+    def got_message(self, msg, addr):
+        msg = self.msg_parser.parse_key_sym_sign(msg)
+
+        user = self.keychain.get_user_with_addr(addr)
+
+        self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+        self.verifier.verify_signature(msg, user.public_key)
+
+        msg = self.processor.process_sym_key(msg, user.key)
+        sender, dest, message = msg.payload
+        if self.username != dest:
+            pass  # Raise Hell
+
+        print sender+" -> "+message
+
+    def __get_missing_user_with_username(self, username):
+        utuple = self.list(username)
+        # Should Raise Exception
+        if utuple[0] == username:
+            user = ClientUser()
+            user.username = username
+            user.addr = convert_bytes_to_addr(utuple[1])
+            user.public_key = convert_bytes_to_public_key(utuple[2])
+            self.keychain.add_user(user)
+            return user
+
+    def __get_missing_user_with_addr(self, addr):
+        utuple = self.list(addr, is_ip=True)
+        # Should Raise Exception
+        paddr = convert_bytes_to_addr(utuple[1])
+        if paddr == addr:
+            user = ClientUser()
+            user.username = utuple[0]
+            user.addr = paddr
+            user.public_key = convert_bytes_to_public_key(utuple[2])
+            self.keychain.add_user(user)
+            return user
+
+    def __setup_client_shared_key(self, dest_user):
+        public_key, private_key = generate_dh_pair()
+        n1 = os.urandom(constants.NONCE_LENGTH)
+        # dest_user.dh_private_key = (private_key, n1)
+        msg = Message(message_type["Sender_Client_DH"],
+                      payload=(
+                          self.username, dest_user.username, n1,
+                          convert_public_key_to_bytes(public_key)))
+        msg = self.converter.asym_key_with_sign(msg, dest_user.public_key,
+                                                self.keychain.private_key)
+        msg, addr = send_recv_msg(self.socket, udp, dest_user.addr, msg)
+
+        msg = self.msg_parser.parse_key_asym_sign(msg)
+
+        self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+        self.verifier.verify_signature(msg, dest_user.public_key)
+
+        msg = self.processor.process_asym_key(msg, self.keychain.private_key)
+        sender, dest, n2, gbmodp = msg.payload
+
+        gbmodp = convert_bytes_to_public_key(gbmodp)
+
+        if sender != dest_user.username:
+            pass  # Raise Hell!!
+
+        if self.username != dest:
+            pass  # Raise HELL!!
+
+        key = derive_symmetric_key(private_key, gbmodp, n1, n2)
+        dest_user.key = key
+
+    def list(self, username="*", is_ip=False):
+        if is_ip:
+            is_ip = "1"
+            username = convert_addr_to_bytes(username)
+        else:
+            is_ip = "0"
+
+        msg = Message(message_type["List"],
+                      payload=(self.username, username, is_ip))
+        usr = self.keychain.get_user_with_addr(self.saddr)
         self.converter.sym_key_with_sign(msg, usr.key,
                                          self.keychain.private_key)
         msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
         return self.got_list_response(msg, addr)
 
     def send(self, destination, message):
-       print self.list(destination)
+        user = self.keychain.get_user_with_username(destination)
+        if user is None:
+            user = self.__get_missing_user_with_username(destination)
+
+        if user.key is None:
+            self.__setup_client_shared_key(user)
+
+        # Check Length of Message
+        msg = Message(message_type["Message"],
+                      payload=(self.username, destination, message))
+        msg = self.converter.sym_key_with_sign(msg, user.key,
+                                               self.keychain.private_key)
+        # Should Get Ack Back
+        send_msg(self.socket, user.addr, msg)
 
 
 if __name__ == "__main__":

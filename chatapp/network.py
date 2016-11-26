@@ -49,13 +49,21 @@ class Udp:
     def __recv_message(self):
         while True:
             msg_addr = self.socket.recvfrom(1000)
-            current_thread = self.current_thread
-            t, cv, q = self.threads[current_thread]
-            cv.acquire()
-            q.append(msg_addr)
-            cv.notify()
-            cv.release()
-            self.current_thread = (current_thread + 1) % self.num_threads
+            if MessageParser.get_message_type(msg_addr[0]) in self.handlers:
+                current_thread = self.current_thread
+                t, cv, q = self.threads[current_thread]
+                cv.acquire()
+                q.append(msg_addr)
+                cv.notify()
+                cv.release()
+                self.current_thread = (current_thread + 1) % self.num_threads
+            else:
+                self.cv_for_waiter.acquire()
+                if self.waiting:
+                    self.msg_addr_for_waiter = msg_addr
+                    self.cv_for_waiter.notify()
+
+                self.cv_for_waiter.release()
 
     def __process_message(self, cv, q):
         while True:
@@ -64,16 +72,8 @@ class Udp:
                 cv.wait()
             msg_addr = q.pop()
             cv.release()
-            try:
-                self.handlers[MessageParser.get_message_type(msg_addr[0])](
-                    self.obj_of_handlers, msg_addr[0], msg_addr[1])
-            except KeyError:
-                self.cv_for_waiter.acquire()
-                if self.waiting:
-                    self.msg_addr_for_waiter = msg_addr
-                    self.cv_for_waiter.notify()
-
-                self.cv_for_waiter.release()
+            self.handlers[MessageParser.get_message_type(msg_addr[0])](
+                self.obj_of_handlers, msg_addr[0], msg_addr[1])
 
     def endpoint(self, msg_type):
         def decorator(func):
@@ -81,15 +81,3 @@ class Udp:
             return func
 
         return decorator
-
-# udp = Udp('127.0.0.1', 5000, 5)
-#
-#
-# @udp.endpoint(1)
-# def test_endpoint():
-#     pass
-#
-#
-# udp.start()
-# print udp.handlers
-# print udp.threads

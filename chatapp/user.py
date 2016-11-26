@@ -12,6 +12,6 @@ class ClientUser:
     def __init__(self):
         self.username = None
         self.public_key = None
-        self.dh_public_key = None
+        self.dh_private_key = None
         self.key = None
         self.addr = None

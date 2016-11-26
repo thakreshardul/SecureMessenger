@@ -38,5 +38,17 @@ def send_recv_msg(sender_socket, recv_udp, dest_addr, msg):
     return recv_udp.recv(5)
 
 
+def convert_addr_to_bytes(addr):
+    ip = socket.inet_aton(addr[0])
+    port = struct.pack("!H", addr[1])
+    return ip + port
+
+
+def convert_bytes_to_addr(string):
+    ip = string[:4]
+    port = string[4:]
+    return socket.inet_ntoa(ip), struct.unpack("!H", port)[0]
+
+
 def get_timestamp():
     return long(time.time())

@@ -23,7 +23,10 @@ message_type = {
     "Password": 5,
     "Accept": 6,
     "List": 7,
-    "Logout": 8
+    "Logout": 8,
+    "Sender_Client_DH": 9,
+    "Dest_Client_DH": 10,
+    "Message": 11
 }
 
 message_dictionary = {
@@ -35,7 +38,10 @@ message_dictionary = {
     5: "Password",
     6: "Accept",
     7: "List",
-    8: "Logout"
+    8: "Logout",
+    9: "Sender_Client_DH",
+    10: "Dest_Client_DH",
+    11: "Message"
 }
 
 client_stats = {
