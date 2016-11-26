@@ -18,7 +18,7 @@ class TextInterface:
 
     def login(self):
         while True:
-            usernm = raw_input("Enter your user name->\n")
+            usernm = raw_input("Enter your user name:\n")
             passwd = getpass.getpass("Enter your password:\n")
             if self.client.login(usernm, passwd):
                 print ("Successfully Logged in")
@@ -28,17 +28,18 @@ class TextInterface:
 
     def start(self):
         while True:
-            command = raw_input(
-                "Enter a command:\n1. list\n2. send <USER> <MESSAGE>\n3. quit\n")
-            parts = command.split(" ")
-            if parts[0] == "list":
+            command = raw_input("""Enter a command:\n1. list\n2. send <USER> <MESSAGE>\n3. quit\n""")
+            userinput = command.split(" ")
+            if userinput[0] == "list":
                 self.client.list()
-            elif parts[0] == "send":
-                self.client.send(parts[1], parts[2])
-            elif parts[0] == "quit":
+            elif userinput[0] == "send":
+                self.client.send(userinput[1], userinput[2])
+            elif userinput[0] == "quit":
+                self.client.logout()
+                print ("Quitting the application\n")
                 break
             else:
-                print ("Enter correct command")
+                print ("Enter correct command\n")
 
 
 if __name__ == "__main__":

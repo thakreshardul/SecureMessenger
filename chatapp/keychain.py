@@ -16,6 +16,9 @@ class ClientKeyChain:
     def get_user(self, addr):
         return self.users[addr]
 
+    def remove_user(self, user):
+        self.users[user.addr] = None
+
 
 class ServerKeyChain:
     def __init__(self, priv_file, pub_file):
@@ -27,3 +30,6 @@ class ServerKeyChain:
 
     def get_user(self, addr):
         return self.users[addr]
+
+    def remove_user(self, user):
+        self.users[user.addr] = None
