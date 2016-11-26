@@ -27,8 +27,9 @@ class TextInterface:
                 print ("Unsuccessful login")
 
     def start(self):
+        print "Enter a command:\n1. list\n2. send <USER> <MESSAGE>\n3. quit\n"
         while True:
-            command = raw_input("""Enter a command:\n1. list\n2. send <USER> <MESSAGE>\n3. quit\n""")
+            command = raw_input()
             userinput = command.split(" ")
             if userinput[0] == "list":
                 self.client.list()

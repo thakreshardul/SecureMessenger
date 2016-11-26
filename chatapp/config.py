@@ -17,7 +17,6 @@ class Configuration:
         self.serverport = json_dict["server-port"]
         self.clientip = json_dict["client-ip"]
         self.clientport = json_dict["client-port"]
-        print file, self.clientport
 
 
 __config = None

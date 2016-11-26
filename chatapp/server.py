@@ -1,3 +1,4 @@
+import socket
 import threading
 import time
 
@@ -46,7 +47,6 @@ class Server:
                       payload=self.certificate)
         msg = self.converter.nokey_nosign(msg)
         send_msg(self.socket, addr, msg)
-
 
     @udp.endpoint("Solution")
     def got_solution(self, msg, addr):
@@ -117,17 +117,17 @@ class Server:
             self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
             usr = self.keychain.get_user(addr)
             if usr is None:
-                print "Exception"       #Raise exception
+                print "Exception"  # Raise exception
             self.verifier.verify_signature(msg, usr.public_key)
             msg = self.processor.process_sym_key(msg, usr.key)
             if msg == "LOGOUT":
                 self.keychain.remove_user(usr)
         except exception.SecurityException as e:
             print str(e)
+
     @udp.endpoint("List")
     def got_list_request(self, msg, addr):
         msg = self.msg_parser.parse_key_sym_sign(msg)
-
         usr = self.keychain.get_user(addr)
         self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
         if usr.public_key is None:
@@ -150,18 +150,30 @@ class Server:
             users = self.keychain.users
             for v in users.itervalues():
                 if v.username != usr.username:
-                    adr = v.addr[0] + ":" + str(v.addr[1])
+                    # adr = v.addr[0] + ":" + str(v.addr[1])
                     username = v.username
-                    pk = convert_public_key_to_bytes(v.public_key)
-                    payload.append((username, adr, pk))
+                    # pk = convert_public_key_to_bytes(v.public_key)
+                    # print "pk", len(pk)
+                    payload.append(username)
 
-            payload = [tuple_to_str(t) for t in payload]
+            # payload = tuple([tuple_to_str(t) for t in payload])
+            payload = tuple(payload)
         else:
             users = self.keychain.users
+            payload = ""
             for user in users.itervalues():
                 if user.username == request[1]:
-                    payload = (user.username, user.addr ,)
+                    username = user.username
+                    ip = socket.inet_aton(user.addr[0])
+                    port = struct.pack("!H", user.addr[1])
+                    pk = convert_public_key_to_bytes(user.public_key)
+                    payload = (username, ip + ":" + port, pk)
+                    break
 
+        msg = Message(message_type["List"], payload=payload)
+        msg = self.converter.sym_key_with_sign(msg, usr.key,
+                                               self.keychain.private_key)
+        send_msg(self.socket, usr.addr, msg)
 
 if __name__ == "__main__":
     server = Server("127.0.0.1", 6000)

@@ -1,10 +1,10 @@
+import config
 from chatapp.keychain import ClientKeyChain
 from chatapp.message import *
 from chatapp.network import *
 from chatapp.user import ClientUser
 from chatapp.utilities import send_msg
 from constants import client_stats, message_type
-import config
 
 conf = config.get_config()
 udp = Udp(conf.clientip, conf.clientport, 1)
@@ -24,6 +24,8 @@ class ChatClient:
         self.username = ""
         self.passhash = ""
         self.state = client_stats["Not_Logged_In"]
+        self.command = ""
+        self.cv = threading.Condition()
 
     def login(self, username, password):
         self.state = client_stats["Not_Logged_In"]
@@ -40,11 +42,11 @@ class ChatClient:
 
     def logout(self):
         if self.state == client_stats["Logged_In"]:
-            msg = Message(message_type['Logout'], payload="LOGOUT")
+            msg = Message(message_type['Logout'], payload=("LOGOUT"))
             usr = self.keychain.get_user(self.saddr)
-            msg = self.converter.sym_key_with_sign(msg, usr.key, self.keychain.private_key)
+            msg = self.converter.sym_key_with_sign(msg, usr.key,
+                                                   self.keychain.private_key)
             send_msg(self.socket, self.saddr, msg)
-
 
     @udp.endpoint("Puzzle")
     def find_solution(self, msg, addr):
@@ -139,12 +141,34 @@ class ChatClient:
             print str(e)
             self.state = client_stats["Log_In_Failed"]
 
+    @udp.endpoint("List")
+    def got_list_response(self, msg, addr):
+        msg = self.msg_parser.parse_key_sym_sign(msg)
+        self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+        self.verifier.verify_signature(msg, self.keychain.server_pub_key)
+        server = self.keychain.get_user(self.saddr)
+        msg = self.processor.process_sym_key(msg, server.key)
+        self.cv.acquire()
+        if self.command == "List":
+            print " ".join(list(msg.payload))
+            self.command = ""
+            self.cv.notify()
+        self.cv.release()
+
     def list(self, username="*"):
         msg = Message(message_type["List"], payload=(self.username, username))
         usr = self.keychain.get_user(self.saddr)
         self.converter.sym_key_with_sign(msg, usr.key,
                                          self.keychain.private_key)
+        self.command = "List"
         send_msg(self.socket, self.saddr, msg)
+
+        self.cv.acquire()
+        if self.command == "List":
+            self.cv.wait(5000)
+        if self.command == "List":  # Should Retry
+            self.command = ""
+        self.cv.release()
 
     def send(self, destination, message):
         pass

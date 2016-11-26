@@ -8,6 +8,7 @@ def tuple_to_str(tuple):
     string = ""
     for param in tuple:
         l = struct.pack("!H", len(param))
+        # print type(string), type(l), type(param), param
         string += l
         string += param
 

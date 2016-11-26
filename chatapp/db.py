@@ -40,7 +40,7 @@ class UserDatabase:
 
     def __convert_row(self, row):
         usr = ServerUser()
-        usr.username = row[0]
+        usr.username = str(row[0])
         usr.pass_hash = bytes(row[1])
         usr.salt = bytes(row[2])
         return usr
