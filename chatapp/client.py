@@ -112,7 +112,6 @@ class ChatClient:
                               serialized))
             msg = self.converter.sym_key(msg, key)
             msg.timestamp = ts
-            # send_msg(self.socket, self.saddr, msg)
             return msg
         except exception.SecurityException as e:
             print str(e)
@@ -125,8 +124,6 @@ class ChatClient:
                 self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
                 self.verifier.verify_signature(msg,
                                                self.keychain.server_pub_key)
-                # self.state = client_stats["Logged_In"]
-                # self.passhash = ""
         except exception.SecurityException as e:
             print str(e)
             self.state = client_stats["Log_In_Failed"]

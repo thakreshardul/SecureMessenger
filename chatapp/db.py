@@ -36,7 +36,10 @@ class UserDatabase:
     def get_user(self, usrname):
         self.c.execute(
             "SELECT * FROM userInfo WHERE  username='{0}'".format(usrname))
-        return self.__convert_row(self.c.fetchone())
+        row = self.c.fetchone()
+        if row is None:
+            return None
+        return self.__convert_row(row)
 
     def __convert_row(self, row):
         usr = ServerUser()

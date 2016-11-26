@@ -8,6 +8,7 @@ from db import UserDatabase
 from keychain import ServerKeyChain
 from message import *
 from network import Udp
+from user import ServerUser
 
 udp = Udp("127.0.0.1", 6000, 5)
 
@@ -64,11 +65,11 @@ class Server:
             n2 = os.urandom(constants.NONCE_LENGTH)
             key = derive_symmetric_key(b, gamodp, n1, n2)
 
-            with UserDatabase() as db:
-                usr = db.get_user(username)
-                usr.key = key
-                usr.addr = addr
-                self.keychain.add_user(usr)
+            usr = ServerUser()
+            usr.username = username
+            usr.key = key
+            usr.addr = addr
+            self.keychain.add_user(usr)
 
             msg = Message(message_type["Server_DH"], payload=(gbmodp, n2))
             msg = self.converter.sign(msg, self.keychain.private_key)
@@ -96,6 +97,14 @@ class Server:
 
             if ts != msg.timestamp:
                 raise exception.InvalidTimeStampException()
+
+            with UserDatabase() as db:
+                user = db.get_user(usr.username)
+                if user is None:
+                    self.keychain.remove_user(usr)
+                    raise exception.InvalidTimeStampException()  # Should be More Specific
+                usr.pass_hash = user.pass_hash
+                usr.salt = user.salt
 
             verify_hash_password(pass_hash, usr.pass_hash, usr.salt)
             pub_key = convert_bytes_to_public_key(pub_key)
