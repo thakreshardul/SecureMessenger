@@ -26,7 +26,9 @@ message_type = {
     "Logout": 8,
     "Sender_Client_DH": 9,
     "Dest_Client_DH": 10,
-    "Message": 11
+    "Message": 11,
+    "Broadcast": 12,
+    "Heartbeat": 13
 }
 
 message_dictionary = {
@@ -41,7 +43,9 @@ message_dictionary = {
     8: "Logout",
     9: "Sender_Client_DH",
     10: "Dest_Client_DH",
-    11: "Message"
+    11: "Message",
+    12: "Broadcast",
+    13: "Heartbeat"
 }
 
 client_stats = {

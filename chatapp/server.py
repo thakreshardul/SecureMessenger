@@ -129,8 +129,18 @@ class Server:
                 print "Exception"  # Raise exception
             self.verifier.verify_signature(msg, usr.public_key)
             msg = self.processor.process_sym_key(msg, usr.key)
-            if msg == "LOGOUT":
+            if msg.payload[1] == "LOGOUT":
                 self.keychain.remove_user(usr)
+                msg = Message(message_type["Accept"], payload=("OK",))
+                msg = self.converter.sign(msg, self.keychain.private_key)
+                send_msg(self.socket, addr, msg)
+                # self.keychain.remove_user(usr)
+                ip = convert_addr_to_bytes(usr.addr)
+                payload = (ip, "LOGOUT")
+                msg = Message(message_type["Logout"], payload=payload)
+                msg = self.converter.sign(msg, self.keychain.private_key)
+                for client in self.keychain.list_user():
+                    send_msg(self.socket, client.addr, msg)
         except exception.SecurityException as e:
             print str(e)
 

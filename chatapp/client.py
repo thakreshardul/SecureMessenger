@@ -1,4 +1,5 @@
 import config
+import threading
 from chatapp.keychain import ClientKeyChain
 from chatapp.message import *
 from chatapp.network import *
@@ -6,6 +7,7 @@ from chatapp.user import ClientUser
 from chatapp.utilities import send_msg, send_recv_msg, convert_bytes_to_addr, \
     convert_addr_to_bytes
 from constants import client_stats, message_type
+
 
 conf = config.get_config()
 udp = Udp(conf.clientip, conf.clientport, 1)
@@ -25,6 +27,8 @@ class ChatClient:
         self.username = ""
         self.passhash = ""
         self.state = client_stats["Not_Logged_In"]
+        self.command = ""
+        self.cv = threading.Condition()
 
     def login(self, username, password):
         self.state = client_stats["Not_Logged_In"]
@@ -51,12 +55,33 @@ class ChatClient:
 
     def logout(self):
         if self.state == client_stats["Logged_In"]:
-            msg = Message(message_type['Logout'], payload=("LOGOUT"))
+            msg = Message(message_type['Logout'],
+                          payload=(self.username, "LOGOUT"))
             usr = self.keychain.get_user_with_addr(self.saddr)
             msg = self.converter.sym_key_with_sign(msg, usr.key,
                                                    self.keychain.private_key)
-            send_msg(self.socket, self.saddr, msg)
+            msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
+            if MessageParser.get_message_type(msg) == "Accept":
+                msg = self.msg_parser.parse_sign(msg)
+                self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+                self.verifier.verify_signature(msg,
+                                               self.keychain.server_pub_key)
+                self.state = client_stats["Not_Logged_In"]
+                return True
+            else:
+                return False
 
+    @udp.endpoint("Logout")
+    def broadcast(self, msg, addr):
+        msg = self.msg_parser.parse_key_sym_sign(msg)
+        msg = self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+        msg = self.verifier.verify_signature(msg, self.keychain.server_pub_key, )
+        usr = self.keychain.get_user_with_addr(addr)
+        msg = self.processor.process_sym_key(msg, usr.key)
+        if msg.payload[1] == "LOGOUT":
+            self.keychain.remove_user(msg.payload[0])
+
+    @udp.endpoint("Puzzle")
     def find_solution(self, msg, addr):
         try:
             msg = self.msg_parser.parse_nokey_nosign(msg)
@@ -83,6 +108,7 @@ class ChatClient:
             print str(e)
             self.state = client_stats["Log_In_Failed"]
 
+    @udp.endpoint("Server_DH")
     def server_dh(self, msg, addr):
         try:
             msg = self.msg_parser.parse_sign(msg)
@@ -105,6 +131,10 @@ class ChatClient:
 
             serialized = convert_public_key_to_bytes(self.keychain.public_key)
 
+            # Trying to improve experience by calculating pass_hash during auth
+            while self.passhash == "":
+                pass
+
             ts = get_timestamp()
             msg = Message(message_type["Password"],
                           payload=(
@@ -117,6 +147,7 @@ class ChatClient:
             print str(e)
             self.state = client_stats["Log_In_Failed"]
 
+    @udp.endpoint("Accept")
     def got_accept(self, msg, addr):
         try:
             if addr == self.saddr:
@@ -124,29 +155,39 @@ class ChatClient:
                 self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
                 self.verifier.verify_signature(msg,
                                                self.keychain.server_pub_key)
+                self.state = client_stats["Logged_In"]
+                self.passhash = ""
         except exception.SecurityException as e:
             print str(e)
             self.state = client_stats["Log_In_Failed"]
 
+    @udp.endpoint("Reject")
     def got_reject(self, msg, addr):
         try:
             if self.state == client_stats[
-                "Not_Logged_In"] and self.saddr == addr:
+                    "Not_Logged_In"] and self.saddr == addr:
                 msg = self.msg_parser.parse_sign(msg)
                 self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
                 self.verifier.verify_signature(msg,
                                                self.keychain.server_pub_key)
+                self.state = client_stats["Log_In_Failed"]
         except exception.SecurityException as e:
             print str(e)
             self.state = client_stats["Log_In_Failed"]
 
+    @udp.endpoint("List")
     def got_list_response(self, msg, addr):
         msg = self.msg_parser.parse_key_sym_sign(msg)
         self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
         self.verifier.verify_signature(msg, self.keychain.server_pub_key)
-        server = self.keychain.get_user_with_addr(self.saddr)
+        server = self.keychain.get_user(self.saddr)
         msg = self.processor.process_sym_key(msg, server.key)
-        return msg.payload
+        self.cv.acquire()
+        if self.command == "List":
+            print " ".join(list(msg.payload))
+            self.command = ""
+            self.cv.notify()
+        self.cv.release()
 
     @udp.endpoint("Sender_Client_DH")
     def got_sender_client_dh(self, msg, addr):
@@ -181,13 +222,15 @@ class ChatClient:
 
         msg = self.converter.asym_key_with_sign(msg, user.public_key,
                                                 self.keychain.private_key)
+        self.command = "List"
+        send_msg(self.socket, self.saddr, msg)
 
-        send_msg(self.socket, user.addr, msg)
-
-    @udp.endpoint("Message")
-    def got_message(self, msg, addr):
-        msg = self.msg_parser.parse_key_sym_sign(msg)
-
+        self.cv.acquire()
+        if self.command == "List":
+            self.cv.wait(5000)
+        if self.command == "List":  # Should Retry
+            self.command = ""
+        self.cv.release()
         user = self.keychain.get_user_with_addr(addr)
 
         self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
@@ -285,6 +328,9 @@ class ChatClient:
         # Should Get Ack Back
         send_msg(self.socket, user.addr, msg)
 
+    def heartbeat(self):
+        msg = Message(message_type["Heartbeat"])
+    threading.Timer(60, heartbeat).start()
 
 if __name__ == "__main__":
     client = ChatClient(("127.0.0.1", 6000))
