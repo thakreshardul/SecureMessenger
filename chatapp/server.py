@@ -131,7 +131,7 @@ class Server:
             msg = self.processor.process_sym_key(msg, usr.key)
             if msg.payload[1] == "LOGOUT":
                 self.keychain.remove_user(usr)
-                msg = Message(message_type["OK"], payload=("OK",))
+                msg = Message(message_type["Accept"], payload=("OK",))
                 msg = self.converter.sign(msg, self.keychain.private_key)
                 send_msg(self.socket, addr, msg)
                 # self.keychain.remove_user(usr)

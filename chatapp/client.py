@@ -61,7 +61,7 @@ class ChatClient:
             msg = self.converter.sym_key_with_sign(msg, usr.key,
                                                    self.keychain.private_key)
             msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
-            if MessageParser.get_message_type(msg) == "OK":
+            if MessageParser.get_message_type(msg) == "Accept":
                 msg = self.msg_parser.parse_sign(msg)
                 self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
                 self.verifier.verify_signature(msg,
@@ -71,14 +71,14 @@ class ChatClient:
             else:
                 return False
 
-    @udp.endpoint("Broadcast")
+    @udp.endpoint("Logout")
     def broadcast(self, msg, addr):
         msg = self.msg_parser.parse_key_sym_sign(msg)
         msg = self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
         msg = self.verifier.verify_signature(msg, self.keychain.server_pub_key, )
         usr = self.keychain.get_user_with_addr(addr)
         msg = self.processor.process_sym_key(msg, usr.key)
-        if msg.payload[1] == "logged out":
+        if msg.payload[1] == "LOGOUT":
             self.keychain.remove_user(msg.payload[0])
 
     @udp.endpoint("Puzzle")
