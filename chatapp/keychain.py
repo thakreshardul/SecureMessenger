@@ -57,5 +57,6 @@ class ServerKeyChain:
     def remove_user(self, user):
         self.addrs.pop(user.addr, None)
         self.usernames.pop(user.username, None)
+
     def list_user(self):
         return self.users
