@@ -131,16 +131,15 @@ class Server:
             msg = self.processor.process_sym_key(msg, usr.key)
             if msg.payload[1] == "LOGOUT":
                 self.keychain.remove_user(usr)
-                payload = str_to_tuple("OK")
-                msg = Message(message_type["OK"], payload=payload)
-                msg = self.converter.sign(msg)
+                msg = Message(message_type["OK"], payload=("OK",))
+                msg = self.converter.sign(msg, self.keychain.private_key)
                 send_msg(self.socket, addr, msg)
                 # self.keychain.remove_user(usr)
-                payload = (usr.username, "logged out")
-                msg = Message(message_type["Broadcast"], payload=payload)
+                ip = convert_addr_to_bytes(usr.addr)
+                payload = (ip, "LOGOUT")
+                msg = Message(message_type["Logout"], payload=payload)
+                msg = self.converter.sign(msg, self.keychain.private_key)
                 for client in self.keychain.list_user():
-                    msg = self.converter.sym_key_with_sign(
-                        msg, client.key, self.keychain.private_key)
                     send_msg(self.socket, client.addr, msg)
 
         except exception.SecurityException as e:

@@ -16,3 +16,9 @@ Heartbeat Implementation
 Logout Implementation
 Completion of Text Interface
 Prevent Two Clients From Logging In as the same user
+
+
+check type of the message
+timestamp proper checking
+exception handling
+   --- for type verifier
