@@ -141,7 +141,6 @@ class Server:
                 msg = self.converter.sign(msg, self.keychain.private_key)
                 for client in self.keychain.list_user():
                     send_msg(self.socket, client.addr, msg)
-
         except exception.SecurityException as e:
             print str(e)
 
