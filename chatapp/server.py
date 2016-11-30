@@ -139,7 +139,7 @@ class Server:
                 payload = (ip, "LOGOUT")
                 msg = Message(message_type["Logout"], payload=payload)
                 msg = self.converter.sign(msg, self.keychain.private_key)
-                for client in self.keychain.list_user():
+                for client in self.keychain.list_user().itervalues():
                     send_msg(self.socket, client.addr, msg)
         except exception.SecurityException as e:
             print str(e)

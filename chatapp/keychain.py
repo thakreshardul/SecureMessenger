@@ -59,4 +59,4 @@ class ServerKeyChain:
         self.usernames.pop(user.username, None)
 
     def list_user(self):
-        return self.users
+        return self.usernames

@@ -71,13 +71,13 @@ class ChatClient:
 
     @udp.endpoint("Logout")
     def broadcast(self, msg, addr):
-        msg = self.msg_parser.parse_key_sym_sign(msg)
-        msg = self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
-        msg = self.verifier.verify_signature(msg, self.keychain.server_pub_key, )
-        usr = self.keychain.get_user_with_addr(addr)
-        msg = self.processor.process_sym_key(msg, usr.key)
+        msg = self.msg_parser.parse_sign(msg)
+        self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+        self.verifier.verify_signature(msg, self.keychain.server_pub_key)
+        msg.payload = str_to_tuple(msg.payload)
         if msg.payload[1] == "LOGOUT":
-            self.keychain.remove_user(msg.payload[0])
+            usr = self.keychain.get_user_with_addr(convert_bytes_to_addr(msg.payload[0]))
+            self.keychain.remove_user(usr)
 
     def find_solution(self, msg, addr):
         try:
@@ -174,7 +174,7 @@ class ChatClient:
     @udp.endpoint("Sender_Client_DH")
     def got_sender_client_dh(self, msg, addr):
         msg = self.msg_parser.parse_key_asym_sign(msg)
-
+        print "in client dh"
         user = self.keychain.get_user_with_addr(addr)
 
         if user is None:
@@ -204,7 +204,7 @@ class ChatClient:
 
         msg = self.converter.asym_key_with_sign(msg, user.public_key,
                                                 self.keychain.private_key)
-        send_msg(self.socket, self.saddr, msg)
+        send_msg(self.socket, user.addr, msg)
 
     @udp.endpoint("Message")
     def got_message(self, msg, addr):
@@ -306,9 +306,6 @@ class ChatClient:
         # Should Get Ack Back
         send_msg(self.socket, user.addr, msg)
 
-    def heartbeat(self):
-        msg = Message(message_type["Heartbeat"])
-    threading.Timer(60, heartbeat).start()
 
 if __name__ == "__main__":
     client = ChatClient(("127.0.0.1", 6000))
