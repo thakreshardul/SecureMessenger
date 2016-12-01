@@ -22,6 +22,7 @@ class TextInterface:
             passwd = getpass.getpass("Enter your password:\n")
             if self.client.login(usernm, passwd):
                 print ("Successfully Logged in")
+                self.client.heartbeat()
                 break
             else:
                 print ("Unsuccessful login")

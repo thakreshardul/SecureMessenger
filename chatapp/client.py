@@ -1,5 +1,4 @@
-import config
-import threading
+import config, time
 from chatapp.keychain import ClientKeyChain
 from chatapp.message import *
 from chatapp.network import *
@@ -8,7 +7,7 @@ from chatapp.utilities import send_msg, send_recv_msg, convert_bytes_to_addr, \
     convert_addr_to_bytes
 from constants import client_stats, message_type
 
-
+#config.load(constants.CONFIG_FILE)  # to be removed
 conf = config.get_config()
 udp = Udp(conf.clientip, conf.clientport, 1)
 
@@ -27,6 +26,7 @@ class ChatClient:
         self.username = ""
         self.passhash = ""
         self.state = client_stats["Not_Logged_In"]
+        self.heartbeat_thread = threading.Thread(target=self.heartbeat)
 
     def login(self, username, password):
         self.state = client_stats["Not_Logged_In"]
@@ -43,6 +43,7 @@ class ChatClient:
             self.got_accept(msg, addr)
             self.state = client_stats["Logged_In"]
             self.passhash = ""
+            self.heartbeat_thread.start()
             return True
         elif MessageParser.get_message_type(msg) == "Reject":
             self.got_reject(msg, addr)
@@ -65,6 +66,7 @@ class ChatClient:
                 self.verifier.verify_signature(msg,
                                                self.keychain.server_pub_key)
                 self.state = client_stats["Not_Logged_In"]
+                self.heartbeat_thread.join()
                 return True
             else:
                 return False
@@ -306,9 +308,17 @@ class ChatClient:
         # Should Get Ack Back
         send_msg(self.socket, user.addr, msg)
 
+    def heartbeat(self):
+        while True:
+            msg = Message(message_type["Heartbeat"], payload=(self.username,
+                                                              "HEARTBEAT"))
+            usr = self.keychain.get_user_with_addr(self.saddr)
+            msg = self.converter.sym_key_with_sign(msg, usr.key,
+                                                   self.keychain.private_key)
+            send_msg(self.socket, self.saddr, msg)
+            time.sleep(60)
 
 if __name__ == "__main__":
-    client = ChatClient(("127.0.0.1", 6000))
-    udp.start(client)
+    client = ChatClient(('127.0.0.1', 6000))
+    client.heartbeat()
     # for i in xrange(100000):
-    print client.login("secure", "secret")

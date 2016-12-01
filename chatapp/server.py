@@ -10,7 +10,7 @@ from message import *
 from network import Udp
 from user import ServerUser
 
-udp = Udp("127.0.0.1", 6000, 5)
+udp = Udp("0.0.0.0", 6000, 5)
 
 
 class Server:
@@ -30,6 +30,7 @@ class Server:
         self.puz_thread = threading.Thread(
             target=self.__generate_puz_certificate)
         self.puz_thread.start()
+        self.timestamp_list = []
 
     def __generate_puz_certificate(self):
         while True:
@@ -44,6 +45,7 @@ class Server:
 
     @udp.endpoint("Login")
     def got_login_packet(self, msg, addr):
+        print "login"
         msg = Message(message_type["Puzzle"],
                       payload=self.certificate)
         msg = self.converter.nokey_nosign(msg)
@@ -109,7 +111,7 @@ class Server:
             verify_hash_password(pass_hash, usr.pass_hash, usr.salt)
             pub_key = convert_bytes_to_public_key(pub_key)
             usr.public_key = pub_key
-
+            self.add_timestamp(usr)
             msg = Message(message_type["Accept"])
             msg = self.converter.sign(msg, self.keychain.private_key)
             send_msg(self.socket, usr.addr, msg)
@@ -131,6 +133,7 @@ class Server:
             msg = self.processor.process_sym_key(msg, usr.key)
             if msg.payload[1] == "LOGOUT":
                 self.keychain.remove_user(usr)
+                self.remove_timestamp(usr)
                 msg = Message(message_type["Accept"], payload=("OK",))
                 msg = self.converter.sign(msg, self.keychain.private_key)
                 send_msg(self.socket, addr, msg)
@@ -184,6 +187,25 @@ class Server:
         msg = self.converter.sym_key_with_sign(msg, usr.key,
                                                self.keychain.private_key)
         send_msg(self.socket, usr.addr, msg)
+
+    @udp.endpoint("Heartbeat")
+    def got_heartbeat(self, msg, addr):
+        msg = self.msg_parser.parse_key_sym_sign(msg)
+        self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+        usr = self.keychain.get_user_with_addr(addr)
+        self.verifier.verify_signature(msg, usr.public_key)
+        msg = self.processor.process_sym_key(msg, usr.key)
+        if msg.payload[1] == "HEARTBEAT":
+            self.add_timestamp(usr)
+
+    def add_timestamp(self, usr):
+        usr.ref_count += 1
+        ts_tuple = (get_timestamp(), usr)
+        self.timestamp_list.append(ts_tuple)
+
+    def remove_timestamp(self, usr):
+        usr.ref_count -= 1
+        self.timestamp_list.pop(usr)
 
 
 if __name__ == "__main__":
