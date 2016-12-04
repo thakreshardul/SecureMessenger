@@ -30,7 +30,9 @@ class Server:
         self.puz_thread = threading.Thread(
             target=self.__generate_puz_certificate)
         self.puz_thread.start()
-        self.timestamp_list = []
+        self.check_heartbeat_thread = threading.Thread(
+            target=self.check_heartbeat)
+        self.check_heartbeat_thread.start()
 
     def __generate_puz_certificate(self):
         while True:
@@ -116,7 +118,7 @@ class Server:
             verify_hash_password(pass_hash, usr.pass_hash, usr.salt)
             pub_key = convert_bytes_to_public_key(pub_key)
             usr.public_key = pub_key
-            self.add_timestamp(usr)
+            usr.timestamp = get_timestamp() + constants.HEARTBEAT_TIMEOUT
             msg = Message(message_type["Accept"])
             msg = self.converter.sign(msg, self.keychain.private_key)
             send_msg(self.socket, usr.addr, msg)
@@ -135,19 +137,21 @@ class Server:
             msg = self.processor.process_sym_key(msg, usr.key)
             if msg.payload[1] == "LOGOUT":
                 self.keychain.remove_user(usr)
-                self.remove_timestamp(usr)
                 msg = Message(message_type["Accept"], payload=("OK",))
                 msg = self.converter.sign(msg, self.keychain.private_key)
                 send_msg(self.socket, addr, msg)
                 # self.keychain.remove_user(usr)
-                ip = convert_addr_to_bytes(usr.addr)
-                payload = (ip, "LOGOUT")
-                msg = Message(message_type["Logout"], payload=payload)
-                msg = self.converter.sign(msg, self.keychain.private_key)
-                for client in self.keychain.list_user().itervalues():
-                    send_msg(self.socket, client.addr, msg)
+                self.send_logout_broadcast(usr)
         except exception.SecurityException as e:
             print str(e)
+
+    def send_logout_broadcast(self, usr):
+        ip = convert_addr_to_bytes(usr.addr)
+        payload = (ip, "LOGOUT")
+        msg = Message(message_type["Logout"], payload=payload)
+        msg = self.converter.sign(msg, self.keychain.private_key)
+        for client in self.keychain.list_user().itervalues():
+            send_msg(self.socket, client.addr, msg)
 
     @udp.endpoint("List")
     def got_list_request(self, msg, addr):
@@ -198,17 +202,19 @@ class Server:
         self.verifier.verify_signature(msg, usr.public_key)
         msg = self.processor.process_sym_key(msg, usr.key)
         if msg.payload[1] == "HEARTBEAT":
-            self.add_timestamp(usr)
+            usr.timestamp = get_timestamp() + constants.HEARTBEAT_TIMEOUT
 
-    def add_timestamp(self, usr):
-        usr.ref_count += 1
-        ts_tuple = (get_timestamp(), usr)
-        self.timestamp_list.append(ts_tuple)
-
-    def remove_timestamp(self, usr):
-        usr.ref_count -= 1
-        self.timestamp_list.pop(usr)
-
+    def check_heartbeat(self):
+        while True:
+            t1 = get_timestamp()
+            for user in self.keychain.list_user().itervalues():
+                if get_timestamp() >= user.timestamp:
+                    self.keychain.remove_user(user)
+                    self.send_logout_broadcast(user)
+            t2 = get_timestamp()
+            drift = constants.HEARTBEAT_PAUSE - ((t2 - t1) / 1000)
+            if drift > 0:
+                time.sleep(drift)
 
 if __name__ == "__main__":
     server = Server("127.0.0.1", 6000)

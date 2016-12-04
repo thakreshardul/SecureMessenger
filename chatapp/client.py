@@ -320,7 +320,7 @@ class ChatClient:
             msg = self.converter.sym_key_with_sign(msg, usr.key,
                                                    self.keychain.private_key)
             send_msg(self.socket, self.saddr, msg)
-            time.sleep(60)
+            time.sleep(30)
 
 if __name__ == "__main__":
     client = ChatClient(('127.0.0.1', 6000))

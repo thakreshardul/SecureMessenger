@@ -6,7 +6,7 @@ class ServerUser:
         self.public_key = None
         self.key = None
         self.addr = None
-        self.ref_count = None
+        self.timestamp = None
 
 
 class ClientUser:
