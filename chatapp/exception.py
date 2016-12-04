@@ -54,3 +54,8 @@ class InvalidTagException(SecurityException):
 
     def __str__(self):
         return "Tag of Packet is Invalid"
+
+
+class InvalidUserException(SecurityException):
+    def __str__(self):
+        return "The user is not logged in or doesnt exist"

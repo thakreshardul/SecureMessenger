@@ -7,7 +7,7 @@ class ClientKeyChain:
         self.server_pub_key, self.server_priv_key = load_rsa_pair(
             server_priv_file, server_pub_file)
 
-        self.dh_keys = {}
+        self.server_dh_key = None
         self.addrs = {}
         self.usernames = {}
 

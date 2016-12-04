@@ -12,7 +12,6 @@ from user import ServerUser
 
 udp = Udp("0.0.0.0", 6000, 5)
 
-
 class Server:
     def __init__(self, ip, port):
         self.ip = ip
@@ -26,6 +25,7 @@ class Server:
         self.processor = MessageProcessor()
         self.verifier = MessageVerifer()
         self.certificate = None
+        self.nc_list = {}
         UserDatabase().create_db()
         self.puz_thread = threading.Thread(
             target=self.__generate_puz_certificate)
@@ -41,6 +41,7 @@ class Server:
             packed_t = struct.pack("!L", expiry_time)
             sign = sign_stuff(self.keychain.private_key, packed_t + d + ns)
             self.certificate = Certificate(packed_t, d, ns, sign)
+            self.nc_list = {}
             time.sleep(60)
 
     @udp.endpoint("Login")
@@ -56,9 +57,16 @@ class Server:
         try:
             msg = self.msg_parser.parse_key_asym_ans(msg)
             self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
-            msg = self.processor.process_ans(msg, self.certificate.nonce_s,
+            solution = Solution._make(msg.sign)
+            if solution.nonce_c in self.nc_list:
+                raise exception.InvalidSolutionException()
+
+            msg = self.processor.process_ans(msg, solution,
+                                             self.certificate.nonce_s,
                                              ord(self.certificate.difficulty),
                                              self.keychain.private_key)
+
+            self.nc_list[solution.nonce_c] = True
             username, gamodp, n1 = msg.payload
             gamodp = convert_bytes_to_public_key(gamodp)
 
@@ -78,9 +86,6 @@ class Server:
             send_msg(self.socket, addr, msg)
         except exception.SecurityException as e:
             print str(e)
-            msg = Message(message_type["Reject"])
-            msg = self.converter.sign(msg, self.keychain.private_key)
-            send_msg(self.socket, addr, msg)
 
     @udp.endpoint("Password")
     def got_password(self, msg, addr):
@@ -117,9 +122,6 @@ class Server:
             send_msg(self.socket, usr.addr, msg)
         except exception.SecurityException as e:
             print str(e)
-            msg = Message(message_type["Reject"])
-            msg = self.converter.sign(msg, self.keychain.private_key)
-            send_msg(self.socket, addr, msg)
 
     @udp.endpoint("Logout")
     def got_logout_packet(self, msg, addr):
@@ -149,44 +151,44 @@ class Server:
 
     @udp.endpoint("List")
     def got_list_request(self, msg, addr):
-        msg = self.msg_parser.parse_key_sym_sign(msg)
-        usr = self.keychain.get_user_with_addr(addr)
-        self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
-        if usr.public_key is None:
-            # Should Remove Signature or can ignore to return something
-            msg = Message(message_type["Reject"])
-            msg = self.converter.sign(msg, self.keychain.private_key)
-            send_msg(self.socket, addr, msg)
-            return
+        try:
+            msg = self.msg_parser.parse_key_sym_sign(msg)
+            usr = self.keychain.get_user_with_addr(addr)
+            self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+            if usr.public_key is None:
+                raise exception.InvalidUserException()
 
-        self.verifier.verify_signature(msg, usr.public_key)
+            self.verifier.verify_signature(msg, usr.public_key)
 
-        msg = self.processor.process_sym_key(msg, usr.key)
-        request = msg.payload
-        if request[0] != usr.username:
-            pass  # Raise HELL!!
-        if request[1] == "*":
-            payload = []
-            users = self.keychain.usernames
-            for v in users.itervalues():
-                if v.username != usr.username:
-                    username = v.username
-                    payload.append(username)
-            payload = tuple(payload)
-        else:
-            if request[2] == "0":
-                user = self.keychain.get_user_with_username(request[1])
+            msg = self.processor.process_sym_key(msg, usr.key)
+            request = msg.payload
+            if request[0] != usr.username:
+                raise exception.InvalidUserException()
+
+            if request[1] == "*":
+                payload = []
+                users = self.keychain.usernames
+                for v in users.itervalues():
+                    if v.username != usr.username:
+                        username = v.username
+                        payload.append(username)
+                payload = tuple(payload)
             else:
-                user = self.keychain.get_user_with_addr(
-                    convert_bytes_to_addr(request[1]))
-            username = user.username
-            pk = convert_public_key_to_bytes(user.public_key)
-            payload = (username, convert_addr_to_bytes(user.addr), pk)
+                if request[2] == "0":
+                    user = self.keychain.get_user_with_username(request[1])
+                else:
+                    user = self.keychain.get_user_with_addr(
+                        convert_bytes_to_addr(request[1]))
+                username = user.username
+                pk = convert_public_key_to_bytes(user.public_key)
+                payload = (username, convert_addr_to_bytes(user.addr), pk)
 
-        msg = Message(message_type["List"], payload=payload)
-        msg = self.converter.sym_key_with_sign(msg, usr.key,
-                                               self.keychain.private_key)
-        send_msg(self.socket, usr.addr, msg)
+            msg = Message(message_type["List"], payload=payload)
+            msg = self.converter.sym_key_with_sign(msg, usr.key,
+                                                   self.keychain.private_key)
+            send_msg(self.socket, usr.addr, msg)
+        except exception.SecurityException as e:
+            print str(e)
 
     @udp.endpoint("Heartbeat")
     def got_heartbeat(self, msg, addr):

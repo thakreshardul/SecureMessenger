@@ -6,8 +6,8 @@ from chatapp.user import ClientUser
 from chatapp.utilities import send_msg, send_recv_msg, convert_bytes_to_addr, \
     convert_addr_to_bytes
 from constants import client_stats, message_type
+import time
 
-#config.load(constants.CONFIG_FILE)  # to be removed
 conf = config.get_config()
 udp = Udp(conf.clientip, conf.clientport, 1)
 
@@ -28,11 +28,13 @@ class ChatClient:
         self.state = client_stats["Not_Logged_In"]
         self.heartbeat_thread = threading.Thread(target=self.heartbeat)
 
+    def compute_hash(self, password):
+        self.passhash = generate_client_hash_password(self.username, password)
+
     def login(self, username, password):
         self.state = client_stats["Not_Logged_In"]
         self.username = username
-        self.passhash = generate_client_hash_password(self.username,
-                                                      password)  # Separate Thread
+        threading.Thread(target=self.compute_hash, args=(password,)).start()
         msg = self.converter.nokey_nosign(Message(message_type['Login']))
         msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
         msg = self.find_solution(msg, addr)
@@ -50,7 +52,8 @@ class ChatClient:
             self.state = client_stats["Log_In_Failed"]
             return False
         else:
-            pass  # Should Handle
+            self.state = client_stats["Log_In_Failed"]
+            return False
 
     def logout(self):
         if self.state == client_stats["Logged_In"]:
@@ -78,7 +81,8 @@ class ChatClient:
         self.verifier.verify_signature(msg, self.keychain.server_pub_key)
         msg.payload = str_to_tuple(msg.payload)
         if msg.payload[1] == "LOGOUT":
-            usr = self.keychain.get_user_with_addr(convert_bytes_to_addr(msg.payload[0]))
+            usr = self.keychain.get_user_with_addr(
+                convert_bytes_to_addr(msg.payload[0]))
             self.keychain.remove_user(usr)
 
     def find_solution(self, msg, addr):
@@ -95,7 +99,7 @@ class ChatClient:
             x = solve_puzzle(ns, nc, d)
             pub, priv = generate_dh_pair()
             n1 = os.urandom(16)
-            self.keychain.dh_keys[''] = (priv, n1)
+            self.keychain.server_dh_key = (priv, n1)
             gamodp = convert_public_key_to_bytes(pub)
 
             msg = Message(message_type['Solution'], sign=(nc, bytes(x)),
@@ -116,10 +120,10 @@ class ChatClient:
 
             gbmodp, n2, = msg.payload
             gbmodp = convert_bytes_to_public_key(gbmodp)
-            a, n1 = self.keychain.dh_keys['']
+            a, n1 = self.keychain.server_dh_key
             key = derive_symmetric_key(a, gbmodp, n1, n2)
 
-            self.keychain.dh_keys[''] = None
+            self.keychain.server_dh_key = None
 
             user = ClientUser()
             user.username = ""
@@ -129,6 +133,8 @@ class ChatClient:
 
             serialized = convert_public_key_to_bytes(self.keychain.public_key)
 
+            while self.passhash == "":
+                time.sleep(0)
 
             ts = get_timestamp()
             msg = Message(message_type["Password"],
@@ -156,7 +162,7 @@ class ChatClient:
     def got_reject(self, msg, addr):
         try:
             if self.state == client_stats[
-                    "Not_Logged_In"] and self.saddr == addr:
+                "Not_Logged_In"] and self.saddr == addr:
                 msg = self.msg_parser.parse_sign(msg)
                 self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
                 self.verifier.verify_signature(msg,
@@ -176,11 +182,9 @@ class ChatClient:
     @udp.endpoint("Sender_Client_DH")
     def got_sender_client_dh(self, msg, addr):
         msg = self.msg_parser.parse_key_asym_sign(msg)
-        print "in client dh"
-        user = self.keychain.get_user_with_addr(addr)
+        # user = self.keychain.get_user_with_addr(addr)
 
-        if user is None:
-            user = self.__get_missing_user_with_addr(addr)
+        user = self.__get_missing_user_with_addr(addr)
 
         self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
         self.verifier.verify_signature(msg, user.public_key)
@@ -221,7 +225,7 @@ class ChatClient:
         if self.username != dest:
             pass  # Raise Hell
 
-        print sender+" -> "+message
+        print sender + " -> " + message
 
     def __get_missing_user_with_username(self, username):
         utuple = self.list(username)

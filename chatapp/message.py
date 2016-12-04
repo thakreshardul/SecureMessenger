@@ -212,8 +212,7 @@ class MessageProcessor:
         msg.payload = str_to_tuple(dpayload)
         return msg
 
-    def process_ans(self, msg, ns, d, sender_private_key):
-        solution = Solution._make(msg.sign)
+    def process_ans(self, msg, solution, ns, d, sender_private_key):
         verify_puzzle(ns, solution.nonce_c, solution.x, d)
         return self.process_asym_key(msg, sender_private_key)
 
