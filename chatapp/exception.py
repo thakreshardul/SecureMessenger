@@ -32,6 +32,11 @@ class PasswordMismatchException(SecurityException):
         return "Password for Username is Incorrect"
 
 
+class WrongCredentialsException(SecurityException):
+    def __str__(self):
+        return "Wrong Login Credentials"
+
+
 class InvalidCertificateException(SecurityException):
     def __init__(self):
         pass
@@ -59,3 +64,12 @@ class InvalidTagException(SecurityException):
 class InvalidUserException(SecurityException):
     def __str__(self):
         return "The user is not logged in or doesnt exist"
+
+
+class UserAlreadyLoggedInException(SecurityException):
+    def __str__(self):
+        return "User is Already Logged In"
+
+class MessageTooLongException(SecurityException):
+    def __str__(self):
+        return "Message is Too Long"

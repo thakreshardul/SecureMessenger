@@ -6,7 +6,7 @@ class ServerUser:
         self.public_key = None
         self.key = None
         self.addr = None
-        self.ref_count = None
+        self.ref_count = 0
 
 
 class ClientUser:
@@ -16,3 +16,4 @@ class ClientUser:
         self.dh_private_key = None
         self.key = None
         self.addr = None
+        self.last_recv_msg = 0

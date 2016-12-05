@@ -12,6 +12,7 @@ from user import ServerUser
 
 udp = Udp("0.0.0.0", 6000, 5)
 
+
 class Server:
     def __init__(self, ip, port):
         self.ip = ip
@@ -56,7 +57,7 @@ class Server:
     def got_solution(self, msg, addr):
         try:
             msg = self.msg_parser.parse_key_asym_ans(msg)
-            self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+            self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
             solution = Solution._make(msg.sign)
             if solution.nonce_c in self.nc_list:
                 raise exception.InvalidSolutionException()
@@ -68,6 +69,13 @@ class Server:
 
             self.nc_list[solution.nonce_c] = True
             username, gamodp, n1 = msg.payload
+
+            if self.keychain.get_user_with_username(username) is not None:
+                msg = Message(message_type["Reject"], payload=("Reject",))
+                self.converter.sign(msg, self.keychain.private_key)
+                send_msg(self.socket, addr, msg)
+                return
+
             gamodp = convert_bytes_to_public_key(gamodp)
 
             gbmodp, b = generate_dh_pair()
@@ -91,7 +99,7 @@ class Server:
     def got_password(self, msg, addr):
         try:
             msg = self.msg_parser.parse_key_sym(msg)
-            self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+            self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
             usr = self.keychain.get_user_with_addr(addr)
             msg = self.processor.process_sym_key(msg, usr.key)
 
@@ -113,11 +121,19 @@ class Server:
                 usr.pass_hash = user.pass_hash
                 usr.salt = user.salt
 
-            verify_hash_password(pass_hash, usr.pass_hash, usr.salt)
+            # Should send reject
+            try:
+                verify_hash_password(pass_hash, usr.pass_hash, usr.salt)
+            except exception.PasswordMismatchException:
+                msg = Message(message_type["Reject"], payload=("Reject",))
+                self.converter.sign(msg, self.keychain.private_key)
+                send_msg(self.socket, addr, msg)
+                return
+
             pub_key = convert_bytes_to_public_key(pub_key)
             usr.public_key = pub_key
             self.add_timestamp(usr)
-            msg = Message(message_type["Accept"])
+            msg = Message(message_type["Accept"], payload=("OK",))
             msg = self.converter.sign(msg, self.keychain.private_key)
             send_msg(self.socket, usr.addr, msg)
         except exception.SecurityException as e:
@@ -127,7 +143,7 @@ class Server:
     def got_logout_packet(self, msg, addr):
         try:
             msg = self.msg_parser.parse_key_sym_sign(msg)
-            self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+            self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
             usr = self.keychain.get_user_with_addr(addr)
             if usr is None:
                 print "Exception"  # Raise exception
@@ -154,7 +170,7 @@ class Server:
         try:
             msg = self.msg_parser.parse_key_sym_sign(msg)
             usr = self.keychain.get_user_with_addr(addr)
-            self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+            self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
             if usr.public_key is None:
                 raise exception.InvalidUserException()
 
@@ -193,7 +209,7 @@ class Server:
     @udp.endpoint("Heartbeat")
     def got_heartbeat(self, msg, addr):
         msg = self.msg_parser.parse_key_sym_sign(msg)
-        self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+        self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
         usr = self.keychain.get_user_with_addr(addr)
         self.verifier.verify_signature(msg, usr.public_key)
         msg = self.processor.process_sym_key(msg, usr.key)
