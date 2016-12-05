@@ -177,10 +177,11 @@ class Server:
         try:
             msg = self.msg_parser.parse_key_sym_sign(msg)
             usr = self.keychain.get_user_with_addr(addr)
-            self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
+
             if usr is None or usr.public_key is None:
                 raise exception.InvalidUserException()
 
+            self.verifier.verify_timestamp(msg, usr.last_list_recv)
             self.verifier.verify_signature(msg, usr.public_key)
 
             msg = self.processor.process_sym_key(msg, usr.key)
@@ -205,6 +206,8 @@ class Server:
                 username = user.username
                 pk = convert_public_key_to_bytes(user.public_key)
                 payload = (username, convert_addr_to_bytes(user.addr), pk)
+
+            usr.last_list_recv = msg.timestamp
 
             msg = Message(message_type["List"], payload=payload)
             msg = self.converter.sym_key_with_sign(msg, usr.key,

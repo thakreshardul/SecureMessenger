@@ -7,6 +7,7 @@ class ServerUser:
         self.key = None
         self.addr = None
         self.timestamp = None
+        self.last_list_recv = 0
 
 
 class ClientUser:
