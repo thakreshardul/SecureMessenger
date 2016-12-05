@@ -26,3 +26,7 @@ exception handling
 #Linear search in heartbeat timestamp
 client-to-client accept or reject (signed) and verification after getting new key
 
+Need to handle socket timeouts
+Finish exception handling in all locations
+
+
