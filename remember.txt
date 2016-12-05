@@ -28,6 +28,7 @@ client-to-client accept or reject (signed) and verification after getting new ke
 Need to handle socket timeouts
 Finish exception handling in all locations
 
+Still need to do processor and crypto exceptions
 
 Note:
 1. Not implementing reliability

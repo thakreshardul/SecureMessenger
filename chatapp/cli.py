@@ -1,6 +1,7 @@
 import getpass
-import sys
 import socket
+import sys
+
 import client
 import config
 
@@ -53,6 +54,6 @@ if __name__ == "__main__":
         txtint = TextInterface()
         txtint.login()
         txtint.start()
-    except socket.error as e:
+    except (socket.error, IOError) as e:
         print str(e)
     sys.exit(0)
