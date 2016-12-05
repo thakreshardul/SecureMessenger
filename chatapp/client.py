@@ -35,6 +35,7 @@ class ChatClient:
     def login(self, username, password):
         self.state = client_stats["Not_Logged_In"]
         self.username = username
+        self.passhash = ""
         threading.Thread(target=self.compute_hash, args=(password,)).start()
         msg = self.converter.nokey_nosign(Message(message_type['Login']))
         try:
@@ -109,6 +110,7 @@ class ChatClient:
         if MessageParser.get_message_type(msg) == "Reject":
             self.got_reject(msg, addr)
             self.state = client_stats["Log_In_Failed"]
+            self.passhash = ""
             raise exception.UserAlreadyLoggedInException()
 
         msg = self.msg_parser.parse_sign(msg)

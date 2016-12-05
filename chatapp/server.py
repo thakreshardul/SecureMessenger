@@ -127,6 +127,7 @@ class Server:
             try:
                 verify_hash_password(pass_hash, usr.pass_hash, usr.salt)
             except exception.PasswordMismatchException:
+                self.keychain.remove_user(usr)
                 msg = Message(message_type["Reject"], payload=("Reject",))
                 self.converter.sign(msg, self.keychain.private_key)
                 send_msg(self.socket, addr, msg)
@@ -212,7 +213,6 @@ class Server:
 
     @udp.endpoint("Heartbeat")
     def got_heartbeat(self, msg, addr):
-        print "got heartbeat"
         msg = self.msg_parser.parse_key_sym_sign(msg)
         self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
         usr = self.keychain.get_user_with_addr(addr)
@@ -226,10 +226,10 @@ class Server:
             logged_out = []
             t1 = get_timestamp()
             for user in self.keychain.list_user().itervalues():
-                print get_timestamp(), user.timestamp
-                if get_timestamp() >= user.timestamp:
+                if user.timestamp is not None and get_timestamp() >= user.timestamp:
+                    print user.timestamp
                     logged_out.append(user)
-                    print user.username
+                    print "Logged out", user.username
             for i in logged_out:
                 self.keychain.remove_user(i)
                 self.send_logout_broadcast(i)
