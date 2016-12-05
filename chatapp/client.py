@@ -65,7 +65,7 @@ class ChatClient:
             msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
             if MessageParser.get_message_type(msg) == "Accept":
                 msg = self.msg_parser.parse_sign(msg)
-                self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+                self.verifier.verify_timestamp(msg, get_timestamp() - 5)
                 self.verifier.verify_signature(msg,
                                                self.keychain.server_pub_key)
                 self.state = client_stats["Not_Logged_In"]
@@ -77,7 +77,7 @@ class ChatClient:
     @udp.endpoint("Logout")
     def broadcast(self, msg, addr):
         msg = self.msg_parser.parse_sign(msg)
-        self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+        self.verifier.verify_timestamp(msg, get_timestamp() - 5)
         self.verifier.verify_signature(msg, self.keychain.server_pub_key)
         msg.payload = str_to_tuple(msg.payload)
         if msg.payload[1] == "LOGOUT":
@@ -90,7 +90,7 @@ class ChatClient:
             msg = self.msg_parser.parse_nokey_nosign(msg)
             msg = self.processor.process_certificate(msg)
 
-            self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+            self.verifier.verify_timestamp(msg, get_timestamp() - 5)
             self.verifier.verify_certificate(msg, self.keychain.server_pub_key)
 
             ns = msg.payload.nonce_s
@@ -114,7 +114,7 @@ class ChatClient:
     def server_dh(self, msg, addr):
         try:
             msg = self.msg_parser.parse_sign(msg)
-            self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+            self.verifier.verify_timestamp(msg, get_timestamp() - 5)
             self.verifier.verify_signature(msg, self.keychain.server_pub_key)
             msg.payload = str_to_tuple(msg.payload)
 
@@ -152,7 +152,7 @@ class ChatClient:
         try:
             if addr == self.saddr:
                 msg = self.msg_parser.parse_sign(msg)
-                self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+                self.verifier.verify_timestamp(msg, get_timestamp() - 5)
                 self.verifier.verify_signature(msg,
                                                self.keychain.server_pub_key)
         except exception.SecurityException as e:
@@ -164,7 +164,7 @@ class ChatClient:
             if self.state == client_stats[
                 "Not_Logged_In"] and self.saddr == addr:
                 msg = self.msg_parser.parse_sign(msg)
-                self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+                self.verifier.verify_timestamp(msg, get_timestamp() - 5)
                 self.verifier.verify_signature(msg,
                                                self.keychain.server_pub_key)
         except exception.SecurityException as e:
@@ -173,7 +173,7 @@ class ChatClient:
 
     def got_list_response(self, msg, addr):
         msg = self.msg_parser.parse_key_sym_sign(msg)
-        self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+        self.verifier.verify_timestamp(msg, get_timestamp() - 5)
         self.verifier.verify_signature(msg, self.keychain.server_pub_key)
         server = self.keychain.get_user_with_addr(self.saddr)
         msg = self.processor.process_sym_key(msg, server.key)
@@ -186,7 +186,7 @@ class ChatClient:
 
         user = self.__get_missing_user_with_addr(addr)
 
-        self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+        self.verifier.verify_timestamp(msg, get_timestamp() - 5)
         self.verifier.verify_signature(msg, user.public_key)
 
         msg = self.processor.process_asym_key(msg, self.keychain.private_key)
@@ -217,7 +217,7 @@ class ChatClient:
         msg = self.msg_parser.parse_key_sym_sign(msg)
         user = self.keychain.get_user_with_addr(addr)
 
-        self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+        self.verifier.verify_timestamp(msg, get_timestamp() - 5)
         self.verifier.verify_signature(msg, user.public_key)
 
         msg = self.processor.process_sym_key(msg, user.key)
@@ -264,7 +264,7 @@ class ChatClient:
 
         msg = self.msg_parser.parse_key_asym_sign(msg)
 
-        self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+        self.verifier.verify_timestamp(msg, get_timestamp() - 5)
         self.verifier.verify_signature(msg, dest_user.public_key)
 
         msg = self.processor.process_asym_key(msg, self.keychain.private_key)

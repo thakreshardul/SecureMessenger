@@ -48,7 +48,6 @@ class Server:
 
     @udp.endpoint("Login")
     def got_login_packet(self, msg, addr):
-        print "login"
         msg = Message(message_type["Puzzle"],
                       payload=self.certificate)
         msg = self.converter.nokey_nosign(msg)
@@ -58,7 +57,7 @@ class Server:
     def got_solution(self, msg, addr):
         try:
             msg = self.msg_parser.parse_key_asym_ans(msg)
-            self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+            self.verifier.verify_timestamp(msg, get_timestamp() - 5)
             solution = Solution._make(msg.sign)
             if solution.nonce_c in self.nc_list:
                 raise exception.InvalidSolutionException()
@@ -93,7 +92,7 @@ class Server:
     def got_password(self, msg, addr):
         try:
             msg = self.msg_parser.parse_key_sym(msg)
-            self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+            self.verifier.verify_timestamp(msg, get_timestamp() - 5)
             usr = self.keychain.get_user_with_addr(addr)
             msg = self.processor.process_sym_key(msg, usr.key)
 
@@ -129,7 +128,7 @@ class Server:
     def got_logout_packet(self, msg, addr):
         try:
             msg = self.msg_parser.parse_key_sym_sign(msg)
-            self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+            self.verifier.verify_timestamp(msg, get_timestamp() - 5)
             usr = self.keychain.get_user_with_addr(addr)
             if usr is None:
                 print "Exception"  # Raise exception
@@ -158,7 +157,7 @@ class Server:
         try:
             msg = self.msg_parser.parse_key_sym_sign(msg)
             usr = self.keychain.get_user_with_addr(addr)
-            self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+            self.verifier.verify_timestamp(msg, get_timestamp() - 5)
             if usr.public_key is None:
                 raise exception.InvalidUserException()
 
@@ -196,8 +195,9 @@ class Server:
 
     @udp.endpoint("Heartbeat")
     def got_heartbeat(self, msg, addr):
+        print "got heartbeat"
         msg = self.msg_parser.parse_key_sym_sign(msg)
-        self.verifier.verify_timestamp(msg, get_timestamp() - 5000)
+        self.verifier.verify_timestamp(msg, get_timestamp() - 5)
         usr = self.keychain.get_user_with_addr(addr)
         self.verifier.verify_signature(msg, usr.public_key)
         msg = self.processor.process_sym_key(msg, usr.key)
@@ -206,13 +206,18 @@ class Server:
 
     def check_heartbeat(self):
         while True:
+            logged_out = []
             t1 = get_timestamp()
             for user in self.keychain.list_user().itervalues():
+                print get_timestamp(), user.timestamp
                 if get_timestamp() >= user.timestamp:
-                    self.keychain.remove_user(user)
-                    self.send_logout_broadcast(user)
+                    logged_out.append(user)
+                    print user.username
+            for i in logged_out:
+                self.keychain.remove_user(i)
+                self.send_logout_broadcast(i)
             t2 = get_timestamp()
-            drift = constants.HEARTBEAT_PAUSE - ((t2 - t1) / 1000)
+            drift = constants.HEARTBEAT_PAUSE - (t2 - t1)
             if drift > 0:
                 time.sleep(drift)
 
