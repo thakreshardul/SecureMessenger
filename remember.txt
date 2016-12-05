@@ -16,9 +16,14 @@ Heartbeat Implementation
 Logout Implementation
 Completion of Text Interface
 Prevent Two Clients From Logging In as the same user
-
+-- in got solution check before adding the user to keychain
+-- in got password check that the entry for user in keychain
 
 check type of the message
 timestamp proper checking
 exception handling
    --- for type verifier
+
+1. Linear search in heartbeat timestamp
+   client-to-client accept or reject (signed) and verification after getting new key
+
