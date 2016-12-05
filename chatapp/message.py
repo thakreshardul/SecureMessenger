@@ -186,8 +186,10 @@ class MessageVerifer:
         cert_ts = struct.unpack("!L", cert.timestamp)[0]
         if cert_ts < ts:
             raise exception.InvalidCertificateException()
-        # Should Raise Invalid Cert
-        verify_sign(cert.sign, "".join(cert[:-1]), dest_public_key)
+        try:
+            verify_sign(cert.sign, "".join(cert[:-1]), dest_public_key)
+        except exception.InvalidSignatureException:
+            raise exception.InvalidCertificateException()
 
 
 class MessageProcessor:
