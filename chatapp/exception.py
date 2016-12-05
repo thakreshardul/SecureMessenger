@@ -73,3 +73,7 @@ class UserAlreadyLoggedInException(SecurityException):
 class MessageTooLongException(SecurityException):
     def __str__(self):
         return "Message is Too Long"
+
+class InvalidMessageTypeException(SecurityException):
+    def __str__(self):
+        return "Incorrect message type is received"
