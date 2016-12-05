@@ -1,6 +1,7 @@
 import socket
 import threading
 
+from chatapp import exception
 from message import MessageParser
 
 
@@ -9,11 +10,10 @@ def create_socket():
 
 
 class Udp:
-    def __init__(self, ip, port, num_threads):
+    def __init__(self):
         self.socket = create_socket()
-        self.socket.bind((ip, port))
         self.handlers = {}
-        self.num_threads = num_threads
+        self.num_threads = 0
         self.threads = []
         self.current_thread = 0
         self.obj_of_handlers = None
@@ -21,7 +21,9 @@ class Udp:
         self.cv_for_waiter = threading.Condition()
         self.waiting = False
 
-    def start(self, self_obj):
+    def start(self, self_obj, ip, port, num_threads):
+        self.socket.bind((ip,port))
+        self.num_threads = num_threads
         self.obj_of_handlers = self_obj
         for i in xrange(self.num_threads):
             cv = threading.Condition()
@@ -51,21 +53,24 @@ class Udp:
     def __recv_message(self):
         while True:
             msg_addr = self.socket.recvfrom(1000)
-            if MessageParser.get_message_type(msg_addr[0]) in self.handlers:
-                current_thread = self.current_thread
-                t, cv, q = self.threads[current_thread]
-                cv.acquire()
-                q.append(msg_addr)
-                cv.notify()
-                cv.release()
-                self.current_thread = (current_thread + 1) % self.num_threads
-            else:
-                self.cv_for_waiter.acquire()
-                if self.waiting:
-                    self.msg_addr_for_waiter = msg_addr
-                    self.cv_for_waiter.notify()
+            try:
+                if MessageParser.get_message_type(msg_addr[0]) in self.handlers:
+                    current_thread = self.current_thread
+                    t, cv, q = self.threads[current_thread]
+                    cv.acquire()
+                    q.append(msg_addr)
+                    cv.notify()
+                    cv.release()
+                    self.current_thread = (current_thread + 1) % self.num_threads
+                else:
+                    self.cv_for_waiter.acquire()
+                    if self.waiting:
+                        self.msg_addr_for_waiter = msg_addr
+                        self.cv_for_waiter.notify()
 
-                self.cv_for_waiter.release()
+                    self.cv_for_waiter.release()
+            except exception.SecurityException as e:
+                print str(e)
 
     def __process_message(self, cv, q):
         while True:

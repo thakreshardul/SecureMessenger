@@ -1,21 +1,20 @@
 import getpass
 import sys
-
+import socket
+import client
 import config
-import sys
 
 if len(sys.argv) == 2:
     config.load(sys.argv[1])
 else:
     config.load()
 conf = config.get_config()
-import client
 
 
 class TextInterface:
     def __init__(self):
         self.client = client.ChatClient((conf.serverip, conf.serverport))
-        client.udp.start(self.client)
+        client.udp.start(self.client, conf.clientip, conf.clientport, 1)
 
     def login(self):
         while True:
@@ -50,7 +49,10 @@ class TextInterface:
 
 
 if __name__ == "__main__":
-    txtint = TextInterface()
-    txtint.login()
-    txtint.start()
+    try:
+        txtint = TextInterface()
+        txtint.login()
+        txtint.start()
+    except socket.error as e:
+        print str(e)
     sys.exit(0)

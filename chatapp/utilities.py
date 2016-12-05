@@ -3,13 +3,13 @@ import struct
 import time
 
 import constants
+import exception
 
 
 def tuple_to_str(tuple):
     string = ""
     for param in tuple:
         l = struct.pack("!H", len(param))
-        # print type(string), type(l), type(param), param
         string += l
         string += param
 
@@ -18,14 +18,17 @@ def tuple_to_str(tuple):
 
 def str_to_tuple(string):
     pl = []
-    while True:
-        if string == "":
-            break
-        header = struct.unpack("!H", string[:constants.LEN_LENGTH])[0]
-        param = string[constants.LEN_LENGTH:constants.LEN_LENGTH + header]
-        pl.append(param)
-        string = string[constants.LEN_LENGTH + header:]
-    return tuple(pl)
+    try:
+        while True:
+            if string == "":
+                break
+            header = struct.unpack("!H", string[:constants.LEN_LENGTH])[0]
+            param = string[constants.LEN_LENGTH:constants.LEN_LENGTH + header]
+            pl.append(param)
+            string = string[constants.LEN_LENGTH + header:]
+        return tuple(pl)
+    except (IndexError, struct.error):
+        raise exception.InvalidMessageException()
 
 
 def send_msg(sender_socket, dest_addr, msg):
@@ -45,9 +48,12 @@ def convert_addr_to_bytes(addr):
 
 
 def convert_bytes_to_addr(string):
-    ip = string[:4]
-    port = string[4:]
-    return socket.inet_ntoa(ip), struct.unpack("!H", port)[0]
+    try:
+        ip = string[:4]
+        port = string[4:]
+        return socket.inet_ntoa(ip), struct.unpack("!H", port)[0]
+    except (IndexError, struct.error, socket.error):
+        raise exception.InvalidMessageException()
 
 
 def get_timestamp():

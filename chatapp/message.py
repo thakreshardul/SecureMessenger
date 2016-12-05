@@ -6,7 +6,7 @@ from chatapp.constants import message_dictionary
 from chatapp.utilities import get_timestamp
 from chatapp.utilities import tuple_to_str, str_to_tuple
 from crypto import *
-from ds import Solution, Certificate
+from ds import Certificate
 
 
 class Message:
@@ -81,94 +81,118 @@ class MessageConverter:
 class MessageParser:
     @staticmethod
     def get_message_type(message):
-        return message_dictionary[ord(message[0])]
+        try:
+            return message_dictionary[ord(message[0])]
+        except KeyError:
+            raise exception.InvalidMessageTypeException()
 
     def __parse_timestamp(self, message):
-        return struct.unpack("!L", message)[0]
+        try:
+            return struct.unpack("!L", message)[0]
+        except struct.error:
+            raise exception.InvalidTimeStampException()
 
     def parse_nokey_nosign(self, message):
-        parsed_message = Message(ord(message[0]))
-        start_index = 1
-        end_index = start_index + constants.TIMESTAMP_LENGTH
-        parsed_message.timestamp = self.__parse_timestamp(
-            message[start_index:end_index])
-        parsed_message.payload = message[end_index:]
-        return parsed_message
+        try:
+            parsed_message = Message(ord(message[0]))
+            start_index = 1
+            end_index = start_index + constants.TIMESTAMP_LENGTH
+            parsed_message.timestamp = self.__parse_timestamp(
+                message[start_index:end_index])
+            parsed_message.payload = message[end_index:]
+            return parsed_message
+        except IndexError:
+            raise exception.InvalidMessageException()
 
     def parse_key_asym_sign(self, message):
-        parsed_message = Message(ord(message[0]))
-        start_index = 1
-        end_index = start_index + constants.EKEY_LENGTH
-        parsed_message.key = message[start_index:end_index]
-        start_index = end_index
-        end_index += constants.SIGNATURE_LENGTH
-        parsed_message.sign = message[start_index:end_index]
-        start_index = end_index
-        end_index += constants.TIMESTAMP_LENGTH
-        ts = message[start_index:end_index]
-        parsed_message.timestamp = self.__parse_timestamp(ts)
-        parsed_message.payload = message[end_index:]
-        return parsed_message
+        try:
+            parsed_message = Message(ord(message[0]))
+            start_index = 1
+            end_index = start_index + constants.EKEY_LENGTH
+            parsed_message.key = message[start_index:end_index]
+            start_index = end_index
+            end_index += constants.SIGNATURE_LENGTH
+            parsed_message.sign = message[start_index:end_index]
+            start_index = end_index
+            end_index += constants.TIMESTAMP_LENGTH
+            ts = message[start_index:end_index]
+            parsed_message.timestamp = self.__parse_timestamp(ts)
+            parsed_message.payload = message[end_index:]
+            return parsed_message
+        except IndexError:
+            raise exception.InvalidMessageException()
 
     def parse_key_sym_sign(self, message):
-        parsed_message = Message(ord(message[0]))
-        start_index = 1
-        end_index = start_index + constants.AES_IV_LENGTH + constants.AES_TAG_LENGTH
-        parsed_message.key = message[start_index:end_index]
-        start_index = end_index
-        end_index += constants.SIGNATURE_LENGTH
-        parsed_message.sign = message[start_index:end_index]
-        start_index = end_index
-        end_index += constants.TIMESTAMP_LENGTH
-        parsed_message.timestamp = self.__parse_timestamp(
-            message[start_index:end_index])
-        parsed_message.payload = message[end_index:]
+        try:
+            parsed_message = Message(ord(message[0]))
+            start_index = 1
+            end_index = start_index + constants.AES_IV_LENGTH + constants.AES_TAG_LENGTH
+            parsed_message.key = message[start_index:end_index]
+            start_index = end_index
+            end_index += constants.SIGNATURE_LENGTH
+            parsed_message.sign = message[start_index:end_index]
+            start_index = end_index
+            end_index += constants.TIMESTAMP_LENGTH
+            parsed_message.timestamp = self.__parse_timestamp(
+                message[start_index:end_index])
+            parsed_message.payload = message[end_index:]
 
-        return parsed_message
+            return parsed_message
+        except IndexError:
+            raise exception.InvalidMessageException()
 
     def parse_key_asym_ans(self, message):
-        parsed_message = Message(ord(message[0]))
-        start_index = 1
-        end_index = start_index + constants.EKEY_LENGTH
-        parsed_message.key = message[start_index:end_index]
-        start_index = end_index
-        end_index = end_index + constants.NONCE_LENGTH + constants.LEN_LENGTH
-        l = int(struct.unpack("!H", message[
-                                    end_index:end_index + constants.LEN_LENGTH])[
-                    0])
-        end_index += constants.LEN_LENGTH + l
-        parsed_message.sign = message[start_index:end_index]
-        parsed_message.sign = str_to_tuple(parsed_message.sign)
-        start_index = end_index
-        end_index += constants.TIMESTAMP_LENGTH
-        parsed_message.timestamp = self.__parse_timestamp(
-            message[start_index:end_index])
-        parsed_message.payload = message[end_index:]
-        return parsed_message
+        try:
+            parsed_message = Message(ord(message[0]))
+            start_index = 1
+            end_index = start_index + constants.EKEY_LENGTH
+            parsed_message.key = message[start_index:end_index]
+            start_index = end_index
+            end_index = end_index + constants.NONCE_LENGTH + constants.LEN_LENGTH
+            l = int(struct.unpack("!H", message[
+                                        end_index:end_index + constants.LEN_LENGTH])[
+                        0])
+            end_index += constants.LEN_LENGTH + l
+            parsed_message.sign = message[start_index:end_index]
+            parsed_message.sign = str_to_tuple(parsed_message.sign)
+            start_index = end_index
+            end_index += constants.TIMESTAMP_LENGTH
+            parsed_message.timestamp = self.__parse_timestamp(
+                message[start_index:end_index])
+            parsed_message.payload = message[end_index:]
+            return parsed_message
+        except (IndexError, struct.error):
+            raise exception.InvalidMessageException()
 
     def parse_sign(self, message):
-        parsed_message = Message(ord(message[0]))
-        start_index = 1
-        end_index = start_index + constants.SIGNATURE_LENGTH
-        parsed_message.sign = message[start_index:end_index]
-        start_index = end_index
-        end_index += constants.TIMESTAMP_LENGTH
-        parsed_message.timestamp = self.__parse_timestamp(
-            message[start_index:end_index])
-        parsed_message.payload = message[end_index:]
-        return parsed_message
+        try:
+            parsed_message = Message(ord(message[0]))
+            start_index = 1
+            end_index = start_index + constants.SIGNATURE_LENGTH
+            parsed_message.sign = message[start_index:end_index]
+            start_index = end_index
+            end_index += constants.TIMESTAMP_LENGTH
+            parsed_message.timestamp = self.__parse_timestamp(
+                message[start_index:end_index])
+            parsed_message.payload = message[end_index:]
+            return parsed_message
+        except IndexError:
+            raise exception.InvalidMessageException()
 
     def parse_key_sym(self, message):
-        parsed_message = Message(ord(message[0]))
-        start_index = 1
-        end_index = start_index + constants.AES_IV_LENGTH + constants.AES_TAG_LENGTH
-        parsed_message.key = message[start_index:end_index]
-        start_index = end_index
-        end_index += constants.TIMESTAMP_LENGTH
-        parsed_message.timestamp = self.__parse_timestamp(
-            message[start_index:end_index])
-        parsed_message.payload = message[end_index:]
-        return parsed_message
+        try:
+            parsed_message = Message(ord(message[0]))
+            start_index = 1
+            end_index = start_index + constants.AES_IV_LENGTH + constants.AES_TAG_LENGTH
+            parsed_message.key = message[start_index:end_index]
+            start_index = end_index
+            end_index += constants.TIMESTAMP_LENGTH
+            parsed_message.timestamp = self.__parse_timestamp(
+                message[start_index:end_index])
+            parsed_message.payload = message[end_index:]
+            return parsed_message
+        except IndexError:
+            raise exception.InvalidMessageException()
 
 
 class MessageVerifer:
@@ -183,7 +207,10 @@ class MessageVerifer:
     def verify_certificate(self, msg, dest_public_key):
         cert = msg.payload
         ts = get_timestamp()
-        cert_ts = struct.unpack("!L", cert.timestamp)[0]
+        try:
+            cert_ts = struct.unpack("!L", cert.timestamp)[0]
+        except struct.error:
+            raise exception.InvalidCertificateException()
         if cert_ts < ts:
             raise exception.InvalidCertificateException()
         try:

@@ -1,6 +1,5 @@
 import time
 
-import config
 from chatapp.keychain import ClientKeyChain
 from chatapp.message import *
 from chatapp.network import *
@@ -9,9 +8,7 @@ from chatapp.utilities import send_msg, send_recv_msg, convert_bytes_to_addr, \
     convert_addr_to_bytes
 from constants import message_type
 
-conf = config.get_config()
-udp = Udp(conf.clientip, conf.clientport, 1)
-
+udp = Udp()
 
 class ChatClient:
     def __init__(self, saddr):
@@ -38,6 +35,13 @@ class ChatClient:
         self.passhash = generate_client_hash_password(self.username, password)
 
     def login(self, username, password):
+
+        if len(username) == 0:
+            raise exception.InvalidUsernameException()
+
+        if len(password) == 0:
+            raise exception.InvalidPasswordException()
+
         self.username = username
         self.passhash = ""
         if self.passwd_thread is not None and self.passwd_thread.isAlive():
@@ -49,15 +53,17 @@ class ChatClient:
         msg = self.converter.nokey_nosign(Message(message_type['Login']))
         try:
             msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
-            if MessageParser.get_message_type(msg) == "Puzzle":
-                msg = self.find_solution(msg, addr)
-                msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
+            msg = self.find_solution(msg, addr)
+            msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
 
-            if MessageParser.get_message_type(msg) == "Server_DH":
-                msg = self.server_dh(msg, addr)
-                msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
+            msg = self.server_dh(msg, addr)
+            msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
+
             self.got_login_result(msg, addr)
             return True
+        except socket.timeout:
+            print "Socket Timed Out, Try Again Later"
+            return False
         except exception.SecurityException as e:
             print str(e)
             return False
@@ -72,21 +78,24 @@ class ChatClient:
                                                    self.keychain.private_key)
             msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
             if MessageParser.get_message_type(msg) == "Accept":
-                msg = self.msg_parser.parse_sign(msg)
-                self.verifier.verify_timestamp(msg,
-                                               get_timestamp() - constants.TIMESTAMP_GAP)
-                self.verifier.verify_signature(msg,
-                                               self.keychain.server_pub_key)
+                self.got_accept(msg, addr, self.keychain.server_pub_key,
+                                self.saddr)
                 return True
+            else:
+                raise exception.InvalidMessageTypeException()
+        except socket.timeout:
+            print "Socket Timed Out, Try Again Later"
         except exception.SecurityException as e:
             print str(e)
             return False
 
     @udp.endpoint("Logout")
-    def broadcast(self, msg, addr):
+    def got_broadcast(self, msg, addr):
         try:
-            if MessageParser.get_message_type(msg) != "Broadcast":
-                raise exception.InvalidMessageTypeException()
+
+            if addr != self.saddr:
+                raise exception.InvalidSendersAddressException()
+
             msg = self.msg_parser.parse_sign(msg)
             self.verifier.verify_timestamp(msg,
                                            get_timestamp() - constants.TIMESTAMP_GAP)
@@ -97,10 +106,19 @@ class ChatClient:
                     convert_bytes_to_addr(msg.payload[0]))
                 if usr is not None:
                     self.keychain.remove_user(usr)
+            else:
+                raise exception.InvalidPayloadException()
         except exception.SecurityException as e:
             print str(e)
 
     def find_solution(self, msg, addr):
+
+        if MessageParser.get_message_type(msg) != "Puzzle":
+            raise exception.InvalidMessageTypeException()
+
+        if addr != self.saddr:
+            raise exception.InvalidSendersAddressException()
+
         msg = self.msg_parser.parse_nokey_nosign(msg)
         msg = self.processor.process_certificate(msg)
 
@@ -124,10 +142,15 @@ class ChatClient:
 
     def server_dh(self, msg, addr):
 
+        if addr != self.saddr:
+            raise exception.InvalidSendersAddressException()
+
         if MessageParser.get_message_type(msg) == "Reject":
-            self.got_reject(msg, addr)
+            self.got_reject(msg, addr, self.keychain.server_pub_key, self.saddr)
             self.passhash = ""
             raise exception.UserAlreadyLoggedInException()
+        elif MessageParser.get_message_type(msg) != "Server_DH":
+            raise exception.InvalidMessageTypeException()
 
         msg = self.msg_parser.parse_sign(msg)
         self.verifier.verify_timestamp(msg,
@@ -160,51 +183,60 @@ class ChatClient:
 
     def got_login_result(self, msg, addr):
         if MessageParser.get_message_type(msg) == "Accept":
-            self.got_accept(msg, addr)
+            self.got_accept(msg, addr, self.keychain.server_pub_key, self.saddr)
             self.passhash = ""
             self.heartbeat_thread.start()
         elif MessageParser.get_message_type(msg) == "Reject":
-            self.got_reject(msg, addr)
+            self.got_reject(msg, addr, self.keychain.server_pub_key, self.saddr)
             raise exception.WrongCredentialsException()
         else:
-            raise exception.WrongCredentialsException()  # Should be more specific
+            raise exception.InvalidMessageTypeException()
 
-    def got_accept(self, msg, addr):
+    def got_accept(self, msg, addr, pk, aaddr):
+
+        if addr != aaddr:
+            raise exception.InvalidSendersAddressException()
+
         msg = self.msg_parser.parse_sign(msg)
         self.verifier.verify_timestamp(msg,
                                        get_timestamp() - constants.TIMESTAMP_GAP)
-        # Change Server Pub Key to Generic Pub Key
-        self.verifier.verify_signature(msg,
-                                       self.keychain.server_pub_key)
+        self.verifier.verify_signature(msg, pk)
         msg.payload = str_to_tuple(msg.payload)
         if msg.payload[0] != "OK":
-            raise exception.InvalidSignatureException()  # Should be specific
+            raise exception.InvalidPayloadException()
 
-    def got_reject(self, msg, addr):
+    def got_reject(self, msg, addr, pk, aaddr):
+
+        if addr != aaddr:
+            raise exception.InvalidSendersAddressException()
+
         msg = self.msg_parser.parse_sign(msg)
         self.verifier.verify_timestamp(msg,
                                        get_timestamp() - constants.TIMESTAMP_GAP)
-        self.verifier.verify_signature(msg,
-                                       self.keychain.server_pub_key)
+        self.verifier.verify_signature(msg, pk)
         msg.payload = str_to_tuple(msg.payload)
         if msg.payload[0] != "Reject":
-            raise exception.InvalidSignatureException()  # Should be specific
+            raise exception.InvalidPayloadException()
 
     def got_list_response(self, msg, addr):
-        if MessageParser.get_message_type(msg) == "List":
-            msg = self.msg_parser.parse_key_sym_sign(msg)
-            self.verifier.verify_timestamp(msg,
+        if MessageParser.get_message_type(msg) != "List":
+            raise exception.InvalidMessageTypeException()
+
+        if addr != self.saddr:
+            raise exception.InvalidSendersAddressException()
+
+        msg = self.msg_parser.parse_key_sym_sign(msg)
+        self.verifier.verify_timestamp(msg,
                                        get_timestamp() - constants.TIMESTAMP_GAP)
-            self.verifier.verify_signature(msg, self.keychain.server_pub_key)
-            server = self.keychain.get_user_with_addr(self.saddr)
-            msg = self.processor.process_sym_key(msg, server.key)
-            return msg.payload
+        self.verifier.verify_signature(msg, self.keychain.server_pub_key)
+        server = self.keychain.get_user_with_addr(self.saddr)
+        msg = self.processor.process_sym_key(msg, server.key)
+        return msg.payload
 
     @udp.endpoint("Sender_Client_DH")
     def got_sender_client_dh(self, msg, addr):
         try:
             msg = self.msg_parser.parse_key_asym_sign(msg)
-            # user = self.keychain.get_user_with_addr(addr)
 
             user = self.keychain.get_user_with_addr(addr)
             if user is None:
@@ -250,9 +282,9 @@ class ChatClient:
             user = self.keychain.get_user_with_addr(addr)
 
             if user is None:
-                msg = Message(message_type["Reject"], payload=("Reject",))
-                self.converter.sign(msg, self.keychain.private_key)
-                send_msg(self.socket, addr, msg)
+                # msg = Message(message_type["Reject"], payload=("Reject",))
+                # self.converter.sign(msg, self.keychain.private_key)
+                # send_msg(self.socket, addr, msg)
                 raise exception.InvalidUserException()
 
             self.verifier.verify_timestamp(msg, user.last_recv_msg)
@@ -274,7 +306,9 @@ class ChatClient:
 
     def __get_missing_user_with_username(self, username):
         utuple = self.list(username)
-        # Should Raise Exception
+        if utuple is None:
+            raise exception.ListFailedException()
+
         if utuple[0] == username:
             user = ClientUser()
             user.username = username
@@ -282,10 +316,13 @@ class ChatClient:
             user.public_key = convert_bytes_to_public_key(utuple[2])
             self.keychain.add_user(user)
             return user
+        else:
+            raise exception.InvalidUsernameException()
 
     def __get_missing_user_with_addr(self, addr):
         utuple = self.list(addr, is_ip=True)
-        # Should Raise Exception
+        if utuple is None:
+            exception.ListFailedException()
         paddr = convert_bytes_to_addr(utuple[1])
         if paddr == addr:
             user = ClientUser()
@@ -294,6 +331,8 @@ class ChatClient:
             user.public_key = convert_bytes_to_public_key(utuple[2])
             self.keychain.add_user(user)
             return user
+        else:
+            raise exception.InvalidSendersAddressException()
 
     def __setup_client_shared_key(self, dest_user):
         public_key, private_key = generate_dh_pair()
@@ -341,11 +380,19 @@ class ChatClient:
                                              self.keychain.private_key)
             msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
             return self.got_list_response(msg, addr)
+        except socket.timeout:
+            print "Socket Timed Out, Try Again Later"
+            return None
         except exception.SecurityException as e:
             print str(e)
+            return None
 
     def send(self, destination, message):
         try:
+
+            if len(destination) == 0:
+                raise exception.InvalidUsernameException()
+
             user = self.keychain.get_user_with_username(destination)
             if user is None:
                 user = self.__get_missing_user_with_username(destination)
@@ -353,33 +400,31 @@ class ChatClient:
             if user.key is None:
                 self.__setup_client_shared_key(user)
 
-            if len(message) > 1000:
-                raise exception.MessageTooLongException()
+            if len(message) > 1000 or len(message) == 0:
+                raise exception.InvalidMessageLengthException()
 
             msg = Message(message_type["Message"],
                           payload=(self.username, destination, message))
             msg = self.converter.sym_key_with_sign(msg, user.key,
                                                    self.keychain.private_key)
             msg, addr = send_recv_msg(self.socket, udp, user.addr, msg)
-            if self.got_message_ack(msg, addr):
+
+            # if MessageParser.get_message_type(msg) == "Reject":
+            #     self.got_reject(msg, addr, user.public_key, user.addr)
+            #     user = self.keychain.get_user_with_username(destination)
+            #     self.keychain.remove_user(user)
+            #     # self.send(destination, message)
+            #     raise exception.SendFailedException()
+            if MessageParser.get_message_type(msg) == "Accept":
+                self.got_accept(msg, addr, user.public_key, user.addr)
                 print "Sent Successfully"
             else:
-                user = self.keychain.get_user_with_username(destination)
-                self.keychain.remove_user(user)
-                self.send(destination, message)
+                raise exception.InvalidMessageTypeException()
 
+        except socket.timeout:
+            print "Socket Timed Out, Try Again Later"
         except exception.SecurityException as e:
             print str(e)
-        except socket.timeout as e:
-            print "Socket Timeout Occured"
-
-    def got_message_ack(self, msg, addr):
-        if MessageParser.get_message_type(msg) == "Reject":
-            self.got_reject(msg, addr)
-            return False
-        elif MessageParser.get_message_type(msg) == "Accept":
-            self.got_accept(msg, addr)
-            return True
 
     def heartbeat(self):
         while True:

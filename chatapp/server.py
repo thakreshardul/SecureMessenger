@@ -10,13 +10,11 @@ from message import *
 from network import Udp
 from user import ServerUser
 
-udp = Udp("0.0.0.0", 6000, 5)
+udp = Udp()
 
 
 class Server:
-    def __init__(self, ip, port):
-        self.ip = ip
-        self.port = port
+    def __init__(self):
         self.socket = udp.socket
         self.keychain = ServerKeyChain(
             open(constants.SERVER_PRIVATE_DER_FILE, 'rb'),
@@ -51,6 +49,7 @@ class Server:
 
     @udp.endpoint("Login")
     def got_login_packet(self, msg, addr):
+        # Parsing Exception
         msg = Message(message_type["Puzzle"],
                       payload=self.certificate)
         msg = self.converter.nokey_nosign(msg)
@@ -60,7 +59,8 @@ class Server:
     def got_solution(self, msg, addr):
         try:
             msg = self.msg_parser.parse_key_asym_ans(msg)
-            self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
+            self.verifier.verify_timestamp(msg,
+                                           get_timestamp() - constants.TIMESTAMP_GAP)
             solution = Solution._make(msg.sign)
             if solution.nonce_c in self.nc_list:
                 raise exception.InvalidSolutionException()
@@ -74,7 +74,6 @@ class Server:
             username, gamodp, n1 = msg.payload
 
             if self.keychain.get_user_with_username(username) is not None:
-                print "Rejected"
                 msg = Message(message_type["Reject"], payload=("Reject",))
                 self.converter.sign(msg, self.keychain.private_key)
                 send_msg(self.socket, addr, msg)
@@ -103,18 +102,15 @@ class Server:
     def got_password(self, msg, addr):
         try:
             msg = self.msg_parser.parse_key_sym(msg)
-            self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
+            self.verifier.verify_timestamp(msg,
+                                           get_timestamp() - constants.TIMESTAMP_GAP)
             usr = self.keychain.get_user_with_addr(addr)
             if usr is None:
                 raise exception.InvalidUserException()
+
             msg = self.processor.process_sym_key(msg, usr.key)
-
             ts, pass_hash, pub_key = msg.payload
-
             ts = struct.unpack("!L", ts)[0]
-
-            if addr != usr.addr:
-                raise exception.InvalidTimeStampException()  # Should Be More Specific
 
             if ts != msg.timestamp:
                 raise exception.InvalidTimeStampException()
@@ -149,10 +145,15 @@ class Server:
     def got_logout_packet(self, msg, addr):
         try:
             msg = self.msg_parser.parse_key_sym_sign(msg)
-            self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
+            self.verifier.verify_timestamp(msg,
+                                           get_timestamp() - constants.TIMESTAMP_GAP)
             usr = self.keychain.get_user_with_addr(addr)
             if usr is None or usr.public_key is None:
                 raise exception.InvalidUserException()
+
+            if addr != usr.addr:
+                raise exception.InvalidSendersAddressException()
+
             self.verifier.verify_signature(msg, usr.public_key)
             msg = self.processor.process_sym_key(msg, usr.key)
             if msg.payload[1] == "LOGOUT":
@@ -162,6 +163,8 @@ class Server:
                 send_msg(self.socket, addr, msg)
                 # self.keychain.remove_user(usr)
                 self.send_logout_broadcast(usr)
+            else:
+                raise exception.InvalidPayloadException()
         except exception.SecurityException as e:
             print str(e)
 
@@ -221,10 +224,12 @@ class Server:
     def got_heartbeat(self, msg, addr):
         try:
             msg = self.msg_parser.parse_key_sym_sign(msg)
-            self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
             usr = self.keychain.get_user_with_addr(addr)
             if usr is None or usr.public_key is None:
                 raise exception.InvalidUserException()
+
+            self.verifier.verify_timestamp(msg,
+                                           get_timestamp() - constants.TIMESTAMP_GAP)
             if msg.timestamp == usr.timestamp:
                 raise exception.InvalidTimeStampException()
             self.verifier.verify_signature(msg, usr.public_key)
@@ -240,18 +245,18 @@ class Server:
             t1 = get_timestamp()
             for user in self.keychain.list_user().itervalues():
                 if user.timestamp is not None and get_timestamp() >= user.timestamp:
-                    print user.timestamp
                     logged_out.append(user)
                     print "Logged out", user.username
             for i in logged_out:
                 self.keychain.remove_user(i)
                 self.send_logout_broadcast(i)
             t2 = get_timestamp()
-            drift = constants.HEARTBEAT_PAUSE - (t2 - t1)
-            if drift > 0:
-                time.sleep(drift)
+            sleep_time = constants.HEARTBEAT_PAUSE - (t2 - t1)
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+
 
 if __name__ == "__main__":
-    server = Server("127.0.0.1", 6000)
-    udp.start(server)
+    server = Server()
+    udp.start(server, "127.0.0.1", 6000, 5)
     server.check_heartbeat_thread.join()

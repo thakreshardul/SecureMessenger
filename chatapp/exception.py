@@ -4,17 +4,11 @@ class SecurityException(Exception):
 
 
 class InvalidSolutionException(SecurityException):
-    def __init__(self):
-        pass
-
     def __str__(self):
         return "Got Wrong Solution for Puzzle"
 
 
 class InvalidTimeStampException(SecurityException):
-    def __init__(self):
-        pass
-
     def __str__(self):
         return "Packet has Invalid Timestamp"
 
@@ -25,9 +19,6 @@ class InvalidUsernameException(SecurityException):
 
 
 class PasswordMismatchException(SecurityException):
-    def __init__(self):
-        pass
-
     def __str__(self):
         return "Password for Username is Incorrect"
 
@@ -38,9 +29,6 @@ class WrongCredentialsException(SecurityException):
 
 
 class InvalidCertificateException(SecurityException):
-    def __init__(self):
-        pass
-
     def __str__(self):
         return "Puzzle Certificate is Invalid"
 
@@ -54,9 +42,6 @@ class InvalidSignatureException(SecurityException):
 
 
 class InvalidTagException(SecurityException):
-    def __init__(self):
-        pass
-
     def __str__(self):
         return "Tag of Packet is Invalid"
 
@@ -70,10 +55,37 @@ class UserAlreadyLoggedInException(SecurityException):
     def __str__(self):
         return "User is Already Logged In"
 
-class MessageTooLongException(SecurityException):
+
+class InvalidMessageLengthException(SecurityException):
     def __str__(self):
         return "Message is Too Long"
+
 
 class InvalidMessageTypeException(SecurityException):
     def __str__(self):
         return "Incorrect message type is received"
+
+
+class InvalidSendersAddressException(SecurityException):
+    def __str__(self):
+        return "Received Message has Incorrect Sender's address"
+
+
+class InvalidPayloadException(SecurityException):
+    def __str__(self):
+        return "Received Payload is Invalid"
+
+
+class ListFailedException(SecurityException):
+    def __str__(self):
+        return "List Failed"
+
+
+class InvalidPasswordException(SecurityException):
+    def __str__(self):
+        return "Password Shouldnt be empty"
+
+
+class InvalidMessageException(SecurityException):
+    def __str__(self):
+        return "Invalid Message was received"
