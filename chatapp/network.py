@@ -27,11 +27,13 @@ class Udp:
             cv = threading.Condition()
             q = []
             t = threading.Thread(target=self.__process_message, args=(cv, q))
+            t.daemon = True
             t.start()
             t_tuple = (t, cv, q)
             self.threads.append(t_tuple)
 
         listener_thread = threading.Thread(target=self.__recv_message)
+        listener_thread.daemon = True
         listener_thread.start()
 
     def recv(self, timeout):

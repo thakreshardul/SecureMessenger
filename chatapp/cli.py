@@ -2,6 +2,7 @@ import getpass
 import sys
 
 import config
+import sys
 
 if len(sys.argv) == 2:
     config.load(sys.argv[1])
@@ -20,6 +21,7 @@ class TextInterface:
         while True:
             usernm = raw_input("Enter your user name:\n")
             passwd = getpass.getpass("Enter your password:\n")
+            print "Logging In"
             if self.client.login(usernm, passwd):
                 print ("Successfully Logged in")
                 break
@@ -33,19 +35,22 @@ class TextInterface:
             userinput = command.split(" ")
             if userinput[0] == "list":
                 l = self.client.list()
-                print " ".join(l)
+                if len(l) > 0:
+                    print " ".join(l)
+                else:
+                    print "Only you are logged in"
             elif userinput[0] == "send":
                 self.client.send(userinput[1], userinput[2])
             elif userinput[0] == "quit":
                 self.client.logout()
-                print ("Quitting the application\n")
+                print ("Quitting the application")
                 break
             else:
-                print ("Enter correct command\n")
+                print ("Enter correct command")
 
 
 if __name__ == "__main__":
-    print ("Connecting to server...")
     txtint = TextInterface()
     txtint.login()
     txtint.start()
+    sys.exit(0)

@@ -7,7 +7,7 @@ from chatapp.network import *
 from chatapp.user import ClientUser
 from chatapp.utilities import send_msg, send_recv_msg, convert_bytes_to_addr, \
     convert_addr_to_bytes
-from constants import client_stats, message_type
+from constants import message_type
 
 conf = config.get_config()
 udp = Udp(conf.clientip, conf.clientport, 1)
@@ -30,17 +30,22 @@ class ChatClient:
         self.processor = MessageProcessor()
         self.username = ""
         self.passhash = ""
-        self.state = client_stats["Not_Logged_In"]
         self.heartbeat_thread = threading.Thread(target=self.heartbeat)
+        self.heartbeat_thread.daemon = True
+        self.passwd_thread = None
 
     def compute_hash(self, password):
         self.passhash = generate_client_hash_password(self.username, password)
 
     def login(self, username, password):
-        self.state = client_stats["Not_Logged_In"]
         self.username = username
         self.passhash = ""
-        threading.Thread(target=self.compute_hash, args=(password,)).start()
+        if self.passwd_thread is not None and self.passwd_thread.isAlive():
+            self.passwd_thread.join()
+        self.passwd_thread = threading.Thread(target=self.compute_hash,
+                                              args=(password,))
+        self.passwd_thread.daemon = True
+        self.passwd_thread.start()
         msg = self.converter.nokey_nosign(Message(message_type['Login']))
         try:
             msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
@@ -53,11 +58,10 @@ class ChatClient:
             return True
         except exception.SecurityException as e:
             print str(e)
-            self.state = client_stats["Log_In_Failed"]
             return False
 
     def logout(self):
-        if self.state == client_stats["Logged_In"]:
+        try:
             msg = Message(message_type['Logout'],
                           payload=(self.username, "LOGOUT"))
             usr = self.keychain.get_user_with_addr(self.saddr)
@@ -71,24 +75,26 @@ class ChatClient:
                                                get_timestamp() - constants.TIMESTAMP_GAP)
                 self.verifier.verify_signature(msg,
                                                self.keychain.server_pub_key)
-                self.state = client_stats["Not_Logged_In"]
-                self.heartbeat_thread.join()
                 return True
-            else:
-                return False
+        except exception.SecurityException as e:
+            print str(e)
+            return False
 
     @udp.endpoint("Logout")
     def broadcast(self, msg, addr):
-        msg = self.msg_parser.parse_sign(msg)
-        self.verifier.verify_timestamp(msg,
-                                       get_timestamp() - constants.TIMESTAMP_GAP)
-        self.verifier.verify_signature(msg, self.keychain.server_pub_key)
-        msg.payload = str_to_tuple(msg.payload)
-        if msg.payload[1] == "LOGOUT":
-            usr = self.keychain.get_user_with_addr(
-                convert_bytes_to_addr(msg.payload[0]))
-            if usr is not None:
-                self.keychain.remove_user(usr)
+        try:
+            msg = self.msg_parser.parse_sign(msg)
+            self.verifier.verify_timestamp(msg,
+                                           get_timestamp() - constants.TIMESTAMP_GAP)
+            self.verifier.verify_signature(msg, self.keychain.server_pub_key)
+            msg.payload = str_to_tuple(msg.payload)
+            if msg.payload[1] == "LOGOUT":
+                usr = self.keychain.get_user_with_addr(
+                    convert_bytes_to_addr(msg.payload[0]))
+                if usr is not None:
+                    self.keychain.remove_user(usr)
+        except exception.SecurityException as e:
+            print str(e)
 
     def find_solution(self, msg, addr):
         msg = self.msg_parser.parse_nokey_nosign(msg)
@@ -110,14 +116,12 @@ class ChatClient:
         msg = Message(message_type['Solution'], sign=(nc, bytes(x)),
                       payload=(self.username, gamodp, n1))
         self.converter.asym_key(msg, self.keychain.server_pub_key)
-        # send_msg(self.socket, self.saddr, msg)
         return msg
 
     def server_dh(self, msg, addr):
 
         if MessageParser.get_message_type(msg) == "Reject":
             self.got_reject(msg, addr)
-            self.state = client_stats["Log_In_Failed"]
             self.passhash = ""
             raise exception.UserAlreadyLoggedInException()
 
@@ -153,21 +157,19 @@ class ChatClient:
     def got_login_result(self, msg, addr):
         if MessageParser.get_message_type(msg) == "Accept":
             self.got_accept(msg, addr)
-            self.state = client_stats["Logged_In"]
             self.passhash = ""
             self.heartbeat_thread.start()
         elif MessageParser.get_message_type(msg) == "Reject":
             self.got_reject(msg, addr)
-            self.state = client_stats["Log_In_Failed"]
             raise exception.WrongCredentialsException()
         else:
-            self.state = client_stats["Log_In_Failed"]
             raise exception.WrongCredentialsException()  # Should be more specific
 
     def got_accept(self, msg, addr):
         msg = self.msg_parser.parse_sign(msg)
         self.verifier.verify_timestamp(msg,
                                        get_timestamp() - constants.TIMESTAMP_GAP)
+        # Change Server Pub Key to Generic Pub Key
         self.verifier.verify_signature(msg,
                                        self.keychain.server_pub_key)
         msg.payload = str_to_tuple(msg.payload)

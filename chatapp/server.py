@@ -30,9 +30,11 @@ class Server:
         UserDatabase().create_db()
         self.puz_thread = threading.Thread(
             target=self.__generate_puz_certificate)
+        self.puz_thread.daemon = True
         self.puz_thread.start()
         self.check_heartbeat_thread = threading.Thread(
             target=self.check_heartbeat)
+        self.check_heartbeat_thread.daemon = True
         self.check_heartbeat_thread.start()
 
     def __generate_puz_certificate(self):
@@ -121,11 +123,10 @@ class Server:
                 user = db.get_user(usr.username)
                 if user is None:
                     self.keychain.remove_user(usr)
-                    raise exception.InvalidTimeStampException()  # Should be More Specific
+                    raise exception.InvalidUsernameException()
                 usr.pass_hash = user.pass_hash
                 usr.salt = user.salt
 
-            # Should send reject
             try:
                 verify_hash_password(pass_hash, usr.pass_hash, usr.salt)
             except exception.PasswordMismatchException:
@@ -218,17 +219,20 @@ class Server:
 
     @udp.endpoint("Heartbeat")
     def got_heartbeat(self, msg, addr):
-        msg = self.msg_parser.parse_key_sym_sign(msg)
-        self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
-        usr = self.keychain.get_user_with_addr(addr)
-        if usr is None or usr.public_key is None:
-            raise exception.InvalidUserException()
-        if msg.timestamp == usr.timestamp:
-            raise exception.InvalidTimeStampException()
-        self.verifier.verify_signature(msg, usr.public_key)
-        msg = self.processor.process_sym_key(msg, usr.key)
-        if msg.payload[1] == "HEARTBEAT":
-            usr.timestamp = msg.timestamp + constants.HEARTBEAT_TIMEOUT
+        try:
+            msg = self.msg_parser.parse_key_sym_sign(msg)
+            self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
+            usr = self.keychain.get_user_with_addr(addr)
+            if usr is None or usr.public_key is None:
+                raise exception.InvalidUserException()
+            if msg.timestamp == usr.timestamp:
+                raise exception.InvalidTimeStampException()
+            self.verifier.verify_signature(msg, usr.public_key)
+            msg = self.processor.process_sym_key(msg, usr.key)
+            if msg.payload[1] == "HEARTBEAT":
+                usr.timestamp = msg.timestamp + constants.HEARTBEAT_TIMEOUT
+        except exception.SecurityException as e:
+            print str(e)
 
     def check_heartbeat(self):
         while True:
@@ -250,3 +254,4 @@ class Server:
 if __name__ == "__main__":
     server = Server("127.0.0.1", 6000)
     udp.start(server)
+    server.check_heartbeat_thread.join()
