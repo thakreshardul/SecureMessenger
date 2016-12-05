@@ -19,6 +19,10 @@ class ChatClient:
         self.keychain = ClientKeyChain(
             open(constants.SERVER_PRIVATE_DER_FILE, 'rb'),
             open(constants.SERVER_PUBLIC_DER_FILE, 'rb'))
+        user = ClientUser()
+        user.username = ""
+        user.addr = self.saddr
+        self.keychain.add_user(user)
         self.socket = udp.socket
         self.msg_parser = MessageParser()
         self.converter = MessageConverter()
@@ -56,6 +60,7 @@ class ChatClient:
             msg = Message(message_type['Logout'],
                           payload=(self.username, "LOGOUT"))
             usr = self.keychain.get_user_with_addr(self.saddr)
+
             msg = self.converter.sym_key_with_sign(msg, usr.key,
                                                    self.keychain.private_key)
             msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
@@ -123,12 +128,8 @@ class ChatClient:
 
         self.keychain.server_dh_key = None
 
-        user = ClientUser()
-        user.username = ""
-        user.key = key
-        user.addr = self.saddr
-        self.keychain.add_user(user)
-
+        server = self.keychain.get_user_with_addr(self.saddr)
+        server.key = key
         serialized = convert_public_key_to_bytes(self.keychain.public_key)
 
         while self.passhash == "":
@@ -158,25 +159,22 @@ class ChatClient:
             raise exception.WrongCredentialsException()  # Should be more specific
 
     def got_accept(self, msg, addr):
-        if addr == self.saddr:
-            msg = self.msg_parser.parse_sign(msg)
-            self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
-            self.verifier.verify_signature(msg,
-                                           self.keychain.server_pub_key)
-            msg.payload = str_to_tuple(msg.payload)
-            if msg.payload[0] != "OK":
-                raise exception.InvalidSignatureException()  # Should be specific
+        msg = self.msg_parser.parse_sign(msg)
+        self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
+        self.verifier.verify_signature(msg,
+                                       self.keychain.server_pub_key)
+        msg.payload = str_to_tuple(msg.payload)
+        if msg.payload[0] != "OK":
+            raise exception.InvalidSignatureException()  # Should be specific
 
     def got_reject(self, msg, addr):
-        if self.state == client_stats[
-            "Not_Logged_In"] and self.saddr == addr:
-            msg = self.msg_parser.parse_sign(msg)
-            self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
-            self.verifier.verify_signature(msg,
-                                           self.keychain.server_pub_key)
-            msg.payload = str_to_tuple(msg.payload)
-            if msg.payload[0] != "Reject":
-                raise exception.InvalidSignatureException()  # Should be specific
+        msg = self.msg_parser.parse_sign(msg)
+        self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
+        self.verifier.verify_signature(msg,
+                                       self.keychain.server_pub_key)
+        msg.payload = str_to_tuple(msg.payload)
+        if msg.payload[0] != "Reject":
+            raise exception.InvalidSignatureException()  # Should be specific
 
     def got_list_response(self, msg, addr):
         msg = self.msg_parser.parse_key_sym_sign(msg)

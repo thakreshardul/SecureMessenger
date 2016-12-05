@@ -103,6 +103,8 @@ class Server:
             msg = self.msg_parser.parse_key_sym(msg)
             self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
             usr = self.keychain.get_user_with_addr(addr)
+            if usr is None:
+                raise exception.InvalidUserException()
             msg = self.processor.process_sym_key(msg, usr.key)
 
             ts, pass_hash, pub_key = msg.payload
@@ -125,6 +127,7 @@ class Server:
 
             # Should send reject
             try:
+                print pass_hash, usr.pass_hash, usr.salt
                 verify_hash_password(pass_hash, usr.pass_hash, usr.salt)
             except exception.PasswordMismatchException:
                 msg = Message(message_type["Reject"], payload=("Reject",))
@@ -147,8 +150,8 @@ class Server:
             msg = self.msg_parser.parse_key_sym_sign(msg)
             self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
             usr = self.keychain.get_user_with_addr(addr)
-            if usr is None:
-                print "Exception"  # Raise exception
+            if usr is None or usr.public_key is None:
+                raise exception.InvalidUserException()
             self.verifier.verify_signature(msg, usr.public_key)
             msg = self.processor.process_sym_key(msg, usr.key)
             if msg.payload[1] == "LOGOUT":
@@ -175,7 +178,7 @@ class Server:
             msg = self.msg_parser.parse_key_sym_sign(msg)
             usr = self.keychain.get_user_with_addr(addr)
             self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
-            if usr.public_key is None:
+            if usr is None or usr.public_key is None:
                 raise exception.InvalidUserException()
 
             self.verifier.verify_signature(msg, usr.public_key)
@@ -212,24 +215,29 @@ class Server:
 
     @udp.endpoint("Heartbeat")
     def got_heartbeat(self, msg, addr):
-        print "got heartbeat"
+        #print "got heartbeat"
         msg = self.msg_parser.parse_key_sym_sign(msg)
+
         self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
         usr = self.keychain.get_user_with_addr(addr)
+        if usr is None or usr.public_key is None:
+            raise exception.InvalidUserException()
+        if msg.timestamp == usr.timestamp:
+            raise exception.InvalidTimeStampException()
         self.verifier.verify_signature(msg, usr.public_key)
         msg = self.processor.process_sym_key(msg, usr.key)
         if msg.payload[1] == "HEARTBEAT":
-            usr.timestamp = get_timestamp() + constants.HEARTBEAT_TIMEOUT
+            usr.timestamp = msg.timestamp + constants.HEARTBEAT_TIMEOUT
 
     def check_heartbeat(self):
         while True:
             logged_out = []
             t1 = get_timestamp()
             for user in self.keychain.list_user().itervalues():
-                print get_timestamp(), user.timestamp
+                #print get_timestamp(), user.timestamp
                 if get_timestamp() >= user.timestamp:
                     logged_out.append(user)
-                    print user.username
+                    #print user.username
             for i in logged_out:
                 self.keychain.remove_user(i)
                 self.send_logout_broadcast(i)

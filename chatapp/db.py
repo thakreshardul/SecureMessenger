@@ -34,8 +34,8 @@ class UserDatabase:
         self.conn.commit()
 
     def get_user(self, usrname):
-        self.c.execute(
-            "SELECT * FROM userInfo WHERE  username='{0}'".format(usrname))
+        cmd = "SELECT * FROM userInfo WHERE  username=?"
+        self.c.execute(cmd, (usrname,))
         row = self.c.fetchone()
         if row is None:
             return None
