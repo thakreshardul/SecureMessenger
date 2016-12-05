@@ -103,6 +103,8 @@ class Server:
             msg = self.msg_parser.parse_key_sym(msg)
             self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
             usr = self.keychain.get_user_with_addr(addr)
+            if usr is None:
+                raise exception.InvalidUserException()
             msg = self.processor.process_sym_key(msg, usr.key)
 
             ts, pass_hash, pub_key = msg.payload
@@ -148,8 +150,8 @@ class Server:
             msg = self.msg_parser.parse_key_sym_sign(msg)
             self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
             usr = self.keychain.get_user_with_addr(addr)
-            if usr is None:
-                print "Exception"  # Raise exception
+            if usr is None or usr.public_key is None:
+                raise exception.InvalidUserException()
             self.verifier.verify_signature(msg, usr.public_key)
             msg = self.processor.process_sym_key(msg, usr.key)
             if msg.payload[1] == "LOGOUT":
@@ -176,7 +178,7 @@ class Server:
             msg = self.msg_parser.parse_key_sym_sign(msg)
             usr = self.keychain.get_user_with_addr(addr)
             self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
-            if usr.public_key is None:
+            if usr is None or usr.public_key is None:
                 raise exception.InvalidUserException()
 
             self.verifier.verify_signature(msg, usr.public_key)
@@ -216,10 +218,14 @@ class Server:
         msg = self.msg_parser.parse_key_sym_sign(msg)
         self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
         usr = self.keychain.get_user_with_addr(addr)
+        if usr is None or usr.public_key is None:
+            raise exception.InvalidUserException()
+        if msg.timestamp == usr.timestamp:
+            raise exception.InvalidTimeStampException()
         self.verifier.verify_signature(msg, usr.public_key)
         msg = self.processor.process_sym_key(msg, usr.key)
         if msg.payload[1] == "HEARTBEAT":
-            usr.timestamp = get_timestamp() + constants.HEARTBEAT_TIMEOUT
+            usr.timestamp = msg.timestamp + constants.HEARTBEAT_TIMEOUT
 
     def check_heartbeat(self):
         while True:

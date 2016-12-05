@@ -1,29 +1,28 @@
 
 #Need To Put checking of username and password as close as possible to prevent timing attack
 Check Ips to reduce spoofing
-Sanitization on Server Side (SQL Injection)
+#Client DOS in messaging
+#Sanitization on Server Side (SQL Injection)
 #Check Username if exists or not
 Testing with modified packets
-Checking nonce c in puzzle
-Guarding Against Packet Malforms
-Guarding Against In Between Protocol Packet Receiving
+#Checking nonce c in puzzle
+Guarding Against Packet Malforms  -- parsing exceptions
+Guarding Against In Between Protocol Packet Receiving  -- removed some endpoints
 Man in the Middle Password Attack
 Sqlite Encryption
 
 #List Implementation
 #Send Implementation
-Heartbeat Implementation
-Logout Implementation
-Completion of Text Interface
-Prevent Two Clients From Logging In as the same user
--- in got solution check before adding the user to keychain
--- in got password check that the entry for user in keychain
+#Heartbeat Implementation
+#Logout Implementation
+#Completion of Text Interface
+#Prevent Two Clients From Logging In as the same user
 
 check type of the message
 timestamp proper checking
 exception handling
    --- for type verifier
 
-1. Linear search in heartbeat timestamp
-   client-to-client accept or reject (signed) and verification after getting new key
+#Linear search in heartbeat timestamp
+client-to-client accept or reject (signed) and verification after getting new key
 
