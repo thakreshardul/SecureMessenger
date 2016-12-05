@@ -72,6 +72,7 @@ class Server:
             username, gamodp, n1 = msg.payload
 
             if self.keychain.get_user_with_username(username) is not None:
+                print "Rejected"
                 msg = Message(message_type["Reject"], payload=("Reject",))
                 self.converter.sign(msg, self.keychain.private_key)
                 send_msg(self.socket, addr, msg)

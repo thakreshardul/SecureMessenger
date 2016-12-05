@@ -61,7 +61,7 @@ class ChatClient:
             msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
             if MessageParser.get_message_type(msg) == "Accept":
                 msg = self.msg_parser.parse_sign(msg)
-                self.verifier.verify_timestamp(msg, get_timestamp() - 5)
+                self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
                 self.verifier.verify_signature(msg,
                                                self.keychain.server_pub_key)
                 self.state = client_stats["Not_Logged_In"]
@@ -73,20 +73,21 @@ class ChatClient:
     @udp.endpoint("Logout")
     def broadcast(self, msg, addr):
         msg = self.msg_parser.parse_sign(msg)
-        self.verifier.verify_timestamp(msg, get_timestamp() - 5)
+        self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
         self.verifier.verify_signature(msg, self.keychain.server_pub_key)
         msg.payload = str_to_tuple(msg.payload)
         if msg.payload[1] == "LOGOUT":
             usr = self.keychain.get_user_with_addr(
                 convert_bytes_to_addr(msg.payload[0]))
-            self.keychain.remove_user(usr)
+            if usr is not None:
+                self.keychain.remove_user(usr)
 
     def find_solution(self, msg, addr):
         msg = self.msg_parser.parse_nokey_nosign(msg)
         msg = self.processor.process_certificate(msg)
 
-            self.verifier.verify_timestamp(msg, get_timestamp() - 5)
-            self.verifier.verify_certificate(msg, self.keychain.server_pub_key)
+        self.verifier.verify_timestamp(msg, get_timestamp() - constants.TIMESTAMP_GAP)
+        self.verifier.verify_certificate(msg, self.keychain.server_pub_key)
 
         ns = msg.payload.nonce_s
         nc = os.urandom(16)
@@ -364,7 +365,7 @@ class ChatClient:
             msg = self.converter.sym_key_with_sign(msg, usr.key,
                                                    self.keychain.private_key)
             send_msg(self.socket, self.saddr, msg)
-            time.sleep(30)
+            time.sleep(constants.SEND_HEARTBEAT_TIMEOUT)
 
 
 if __name__ == "__main__":
