@@ -7,7 +7,7 @@ Check Ips to reduce spoofing
 Testing with modified packets
 #Checking nonce c in puzzle
 Guarding Against Packet Malforms  -- parsing exceptions
-Guarding Against In Between Protocol Packet Receiving  -- removed some endpoints
+#Guarding Against In Between Protocol Packet Receiving  -- removed some endpoints
 Man in the Middle Password Attack
 Sqlite Encryption
 
@@ -18,11 +18,16 @@ Sqlite Encryption
 #Completion of Text Interface
 #Prevent Two Clients From Logging In as the same user
 
-check type of the message
-timestamp proper checking
-exception handling
-   --- for type verifier
+#check type of the message
+#timestamp proper checking
+#exception handling --- for type verifier
 
 #Linear search in heartbeat timestamp
 client-to-client accept or reject (signed) and verification after getting new key
 
+Note:
+1. Not implementing reliability
+2. No dynamic puzzles
+3. Client DOSing
+4. No limit to wrong login attempts
+5.

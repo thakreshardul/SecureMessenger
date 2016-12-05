@@ -44,11 +44,13 @@ class ChatClient:
         msg = self.converter.nokey_nosign(Message(message_type['Login']))
         try:
             msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
-            msg = self.find_solution(msg, addr)
-            msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
-            msg = self.server_dh(msg, addr)
+            if MessageParser.get_message_type(msg) == "Puzzle":
+                msg = self.find_solution(msg, addr)
+                msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
 
-            msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
+            if MessageParser.get_message_type(msg) == "Server_DH":
+                msg = self.server_dh(msg, addr)
+                msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
             self.got_login_result(msg, addr)
             return True
         except exception.SecurityException as e:
@@ -79,6 +81,8 @@ class ChatClient:
 
     @udp.endpoint("Logout")
     def broadcast(self, msg, addr):
+        if MessageParser.get_message_type(msg) != "Broadcast":
+            raise exception.InvalidMessageTypeException()
         msg = self.msg_parser.parse_sign(msg)
         self.verifier.verify_timestamp(msg,
                                        get_timestamp() - constants.TIMESTAMP_GAP)
@@ -185,18 +189,20 @@ class ChatClient:
             raise exception.InvalidSignatureException()  # Should be specific
 
     def got_list_response(self, msg, addr):
-        msg = self.msg_parser.parse_key_sym_sign(msg)
+        if MessageParser.get_message_type(msg) == "List":
+            msg = self.msg_parser.parse_key_sym_sign(msg)
         self.verifier.verify_timestamp(msg,
                                        get_timestamp() - constants.TIMESTAMP_GAP)
-        self.verifier.verify_signature(msg, self.keychain.server_pub_key)
-        server = self.keychain.get_user_with_addr(self.saddr)
-        msg = self.processor.process_sym_key(msg, server.key)
-        return msg.payload
+            self.verifier.verify_signature(msg, self.keychain.server_pub_key)
+            server = self.keychain.get_user_with_addr(self.saddr)
+            msg = self.processor.process_sym_key(msg, server.key)
+            return msg.payload
 
     @udp.endpoint("Sender_Client_DH")
     def got_sender_client_dh(self, msg, addr):
         try:
             msg = self.msg_parser.parse_key_asym_sign(msg)
+            # user = self.keychain.get_user_with_addr(addr)
 
             user = self.keychain.get_user_with_addr(addr)
             if user is None:
@@ -236,6 +242,8 @@ class ChatClient:
     @udp.endpoint("Message")
     def got_message(self, msg, addr):
         try:
+            if MessageParser.get_message_type(msg) != "Message":
+                raise exception.InvalidMessageTypeException()
             msg = self.msg_parser.parse_key_sym_sign(msg)
             user = self.keychain.get_user_with_addr(addr)
 
