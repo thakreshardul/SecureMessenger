@@ -85,19 +85,19 @@ class ChatClient:
     @udp.endpoint("Logout")
     def broadcast(self, msg, addr):
         try:
-        if MessageParser.get_message_type(msg) != "Broadcast":
-            raise exception.InvalidMessageTypeException()
-        msg = self.msg_parser.parse_sign(msg)
-        self.verifier.verify_timestamp(msg,
-                                       get_timestamp() - constants.TIMESTAMP_GAP)
-        self.verifier.verify_signature(msg, self.keychain.server_pub_key)
-        msg.payload = str_to_tuple(msg.payload)
-        if msg.payload[1] == "LOGOUT":
-            usr = self.keychain.get_user_with_addr(
-                convert_bytes_to_addr(msg.payload[0]))
-            if usr is not None:
-                self.keychain.remove_user(usr)
-		except exception.SecurityException as e:
+            if MessageParser.get_message_type(msg) != "Broadcast":
+                raise exception.InvalidMessageTypeException()
+            msg = self.msg_parser.parse_sign(msg)
+            self.verifier.verify_timestamp(msg,
+                                           get_timestamp() - constants.TIMESTAMP_GAP)
+            self.verifier.verify_signature(msg, self.keychain.server_pub_key)
+            msg.payload = str_to_tuple(msg.payload)
+            if msg.payload[1] == "LOGOUT":
+                usr = self.keychain.get_user_with_addr(
+                    convert_bytes_to_addr(msg.payload[0]))
+                if usr is not None:
+                    self.keychain.remove_user(usr)
+        except exception.SecurityException as e:
             print str(e)
 
     def find_solution(self, msg, addr):
@@ -193,7 +193,7 @@ class ChatClient:
     def got_list_response(self, msg, addr):
         if MessageParser.get_message_type(msg) == "List":
             msg = self.msg_parser.parse_key_sym_sign(msg)
-        self.verifier.verify_timestamp(msg,
+            self.verifier.verify_timestamp(msg,
                                        get_timestamp() - constants.TIMESTAMP_GAP)
             self.verifier.verify_signature(msg, self.keychain.server_pub_key)
             server = self.keychain.get_user_with_addr(self.saddr)
