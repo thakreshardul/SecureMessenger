@@ -1,9 +1,9 @@
 import socket
 import threading
 
-from chatapp import constants
-from chatapp import exception
-from message import MessageParser
+import chatapp.constants as constants
+import chatapp.exception as exception
+from chatapp.message import MessageParser
 
 
 # A Framework to add udp endpoints

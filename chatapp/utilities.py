@@ -2,8 +2,8 @@ import socket
 import struct
 import time
 
-import constants
-import exception
+import chatapp.constants as constants
+import chatapp.exception as exception
 
 
 # Converts a tuple to string by doing the following

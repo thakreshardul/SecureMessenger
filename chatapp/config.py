@@ -2,8 +2,8 @@
 from json files"""
 import json
 
-import constants
-import exception
+import chatapp.constants as constants
+import chatapp.exception as exception
 
 
 class ClientConfig:

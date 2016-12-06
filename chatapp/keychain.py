@@ -1,4 +1,4 @@
-from crypto import *
+from chatapp.crypto import *
 
 
 # The Keychain is used by Client to store pub keys and AES Keys

@@ -2,16 +2,16 @@ import sys
 import threading
 import time
 
-import config
+import chatapp.config as config
 from chatapp.utilities import send_msg, convert_addr_to_bytes, \
     convert_bytes_to_addr
-from constants import message_type
-from db import UserDatabase
-from ds import Solution
-from keychain import ServerKeyChain
-from message import *
-from network import Udp
-from user import ServerUser
+from chatapp.constants import message_type
+from chatapp.db import UserDatabase
+from chatapp.ds import Solution
+from chatapp.keychain import ServerKeyChain
+from chatapp.message import *
+from chatapp.network import Udp
+from chatapp.user import ServerUser
 
 # Create Udp Object for Endpoints
 udp = Udp()
@@ -329,7 +329,7 @@ class Server:
                 time.sleep(sleep_time)
 
 
-if __name__ == "__main__":
+def run():
     try:
         if len(sys.argv) == 2:
             config.load_server(sys.argv[1])

@@ -2,9 +2,9 @@ import os
 import sqlite3
 import sys
 
-import constants
-from crypto import *
-from user import ServerUser
+import chatapp.constants as constants
+from chatapp.crypto import *
+from chatapp.user import ServerUser
 
 
 class UserDatabase:
@@ -58,14 +58,21 @@ class UserDatabase:
         self.conn.commit()
 
 
-if __name__ == "__main__":
+def add_user():
     args = sys.argv
+    if len(args) != 3:
+        print "Enter Username and Password"
+        exit(0)
+
     username = args[1]
     password = args[2]
-    with UserDatabase() as userdb:
-        userdb.create_db()
-        salt = os.urandom(constants.NONCE_LENGTH)  # generate a random salt
-        # generate password hash from salt
-        pass_hash = generate_server_hash_password(username, password, salt)
-        # insert the username, password hash and salt in the database
-        userdb.insert_user(username, pass_hash, salt)
+    try:
+        with UserDatabase() as userdb:
+            userdb.create_db()
+            salt = os.urandom(constants.NONCE_LENGTH)  # generate a random salt
+            # generate password hash from salt
+            pass_hash = generate_server_hash_password(username, password, salt)
+            # insert the username, password hash and salt in the database
+            userdb.insert_user(username, pass_hash, salt)
+    except sqlite3.IntegrityError:
+        print "Adding same user twice"

@@ -7,7 +7,7 @@ from chatapp.network import *
 from chatapp.user import ClientUser
 from chatapp.utilities import send_msg, send_recv_msg, convert_bytes_to_addr, \
     convert_addr_to_bytes
-from constants import message_type
+from chatapp.constants import message_type
 
 udp = Udp()
 

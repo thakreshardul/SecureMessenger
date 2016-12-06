@@ -5,8 +5,8 @@ import chatapp.constants as constants
 from chatapp.constants import message_dictionary
 from chatapp.utilities import get_timestamp
 from chatapp.utilities import tuple_to_str, str_to_tuple
-from crypto import *
-from ds import Certificate
+from chatapp.crypto import *
+from chatapp.ds import Certificate
 
 
 # The Wrapper for messages sent between all components

@@ -3,9 +3,9 @@ import getpass
 import socket
 import sys
 
-import client
-import config
-import exception
+import chatapp.client as client
+import chatapp.config as config
+import chatapp.exception as exception
 
 
 class TextInterface:
@@ -57,7 +57,7 @@ class TextInterface:
                 print ("Enter correct command")
 
 
-if __name__ == "__main__":
+def run():
     try:
         if len(sys.argv) == 2:
             config.load_client(sys.argv[1])  # load the config file
