@@ -38,11 +38,11 @@ II. List of authenticated users:
 III. Running
 
     Client
-        client <client_config>
+        client <client_config> or python cli.py <client_config> (if not installed)
 
         This will start an interactive session asking for username and password
 
     Server
-        server <server_config>
+        server <server_config> or python server.py <server_config> (if not installed)
 
         If server running pops up then the server is running
