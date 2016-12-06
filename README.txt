@@ -4,6 +4,7 @@ I. Installation:-
     3. copy the files into the folder
     4. source bin/activate
     5. install all cryptography dependencies using apt-get or yum
+       Make sure openssl is updated to latest version
     6. Run python setup.py install
     7. If cryptography doesnt install properly please install it manually
     8. Create client_config.json
