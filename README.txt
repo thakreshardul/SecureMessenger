@@ -1,6 +1,6 @@
 I. Installation:-
     1. create a folder
-    2. Create a virtual environment using 'virtualenv' . (May need to install virtualenv)
+    2. Create a virtual environment using 'virtualenv .' (May need to install virtualenv)
     3. copy the files into the folder
     4. source bin/activate
     5. install all cryptography dependencies using apt-get or yum
@@ -31,7 +31,7 @@ II. List of authenticated users:
     2. username=secure1 password=secret
 
     New users can be added by running
-        db <username> <password>
+        db <username> <password> or python db.py <username> <password> (if not installed)
     Above command doesnt allow duplicate usernames
 
 
