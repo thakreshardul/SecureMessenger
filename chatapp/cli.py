@@ -1,4 +1,5 @@
 import getpass
+import os
 import socket
 import sys
 
@@ -9,8 +10,7 @@ import exception
 
 class TextInterface:
     def __init__(self, conf):
-        self.client = client.ChatClient(
-            (conf.serverip, conf.serverport))
+        self.client = client.ChatClient((conf.serverip, conf.serverport))
         client.udp.start(self.client, conf.clientip, conf.clientport, 1)
 
 
@@ -48,13 +48,14 @@ class TextInterface:
 
 if __name__ == "__main__":
     try:
-        if len(sys.argv) != 2:
+        if len(sys.argv) == 2:
+            config.load_client(sys.argv[1])
+            conf = config.get_client_config()
+            txtint = TextInterface(conf)
+            txtint.login()
+            txtint.start()
+        else:
             raise exception.ConfigFileMissingException()
-        config.load(sys.argv[1])
-        conf = config.get_config()
-        txtint = TextInterface(conf)
-        txtint.login()
-        txtint.start()
     except (socket.error, IOError, exception.SecurityException) as e:
         print str(e)
     sys.exit(0)

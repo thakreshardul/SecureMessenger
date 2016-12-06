@@ -1,0 +1,5 @@
+{
+  "server-ip":"127.0.0.1",
+  "server-port": 6000,
+  "num-threads": 5
+}

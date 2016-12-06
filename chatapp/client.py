@@ -10,6 +10,7 @@ from constants import message_type
 
 udp = Udp()
 
+
 class ChatClient:
     def __init__(self, saddr):
         self.saddr = saddr
@@ -435,9 +436,3 @@ class ChatClient:
                                                    self.keychain.private_key)
             send_msg(self.socket, self.saddr, msg)
             time.sleep(constants.SEND_HEARTBEAT_TIMEOUT)
-
-
-if __name__ == "__main__":
-    client = ChatClient(('127.0.0.1', 6000))
-    client.heartbeat()
-    # for i in xrange(100000):

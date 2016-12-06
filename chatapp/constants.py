@@ -17,7 +17,8 @@ HEARTBEAT_PAUSE = 5
 TIMESTAMP_GAP = 5
 
 DB_LOCATION = "user.db"
-CONFIG_FILE = "config.json"
+CLIENT_CONFIG_FILE = "client_config.json"
+SERVER_CONFIG_FILE = "server_config.json"
 
 message_type = {
     "Reject": 0,

@@ -1,16 +1,17 @@
+import sys
 import threading
 import time
+
 import config
-import sys
 from chatapp.utilities import send_msg, convert_addr_to_bytes, \
     convert_bytes_to_addr
 from constants import message_type
 from db import UserDatabase
+from ds import Solution
 from keychain import ServerKeyChain
 from message import *
 from network import Udp
 from user import ServerUser
-from ds import Solution
 
 udp = Udp()
 
@@ -263,12 +264,13 @@ class Server:
 if __name__ == "__main__":
     try:
         if len(sys.argv) == 2:
-            config.load(sys.argv[1])
+            config.load_server(sys.argv[1])
         else:
             raise exception.ConfigFileMissingException()
-        conf = config.get_config()
+        conf = config.get_server_config()
         server = Server()
-        udp.start(server, conf.serverip, conf.serverport, 5)
+        udp.start(server, conf.serverip, conf.serverport, conf.num_threads)
+        print "Server Running!!"
         server.check_heartbeat_thread.join()
-    except (exception.SecurityException,IOError) as e:
+    except (exception.SecurityException, IOError) as e:
         print str(e)
