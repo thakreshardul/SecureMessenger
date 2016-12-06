@@ -3,8 +3,6 @@ import threading
 import time
 
 import chatapp.config as config
-from chatapp.utilities import send_msg, convert_addr_to_bytes, \
-    convert_bytes_to_addr
 from chatapp.constants import message_type
 from chatapp.db import UserDatabase
 from chatapp.ds import Solution
@@ -12,9 +10,12 @@ from chatapp.keychain import ServerKeyChain
 from chatapp.message import *
 from chatapp.network import Udp
 from chatapp.user import ServerUser
+from chatapp.utilities import send_msg, convert_addr_to_bytes, \
+    convert_bytes_to_addr
 
 # Create Udp Object for Endpoints
 udp = Udp()
+
 
 # Represents the Server
 class Server:
@@ -57,9 +58,9 @@ class Server:
     def __generate_puz_certificate(self):
         while True:
             t1 = time.time()
-            ns = os.urandom(16)
-            d = chr(1)
-            expiry_time = long(t1 + 60)
+            ns = os.urandom(constants.NONCE_LENGTH)
+            d = chr(1) # Default Difficulty
+            expiry_time = long(t1 + constants.PUZZLE_TIMEOUT)
             packed_t = struct.pack("!L", expiry_time)
             sign = sign_stuff(self.keychain.private_key, packed_t + d + ns)
             self.certificate = Certificate(packed_t, d, ns, sign)
@@ -175,7 +176,7 @@ class Server:
             # Add Pub Key to User Obj
             pub_key = convert_bytes_to_public_key(pub_key)
             usr.public_key = pub_key
-            usr.timestamp = get_timestamp() + constants.HEARTBEAT_TIMEOUT
+            usr.last_heartbeat_recv = get_timestamp() + constants.HEARTBEAT_TIMEOUT
 
             # Send Accept
             msg = Message(message_type["Accept"], payload=("OK",))
@@ -267,11 +268,12 @@ class Server:
                 else:
                     user = self.keychain.get_user_with_addr(
                         convert_bytes_to_addr(request[1]))
-                if user is None:
-                    raise exception.InvalidUserException()
-                username = user.username
-                pk = convert_public_key_to_bytes(user.public_key)
-                payload = (username, convert_addr_to_bytes(user.addr), pk)
+                if user is not None:
+                    username = user.username
+                    pk = convert_public_key_to_bytes(user.public_key)
+                    payload = (username, convert_addr_to_bytes(user.addr), pk)
+                else:
+                    payload = ""
 
             # To Prevent DOS
             usr.last_list_recv = msg.timestamp
@@ -298,14 +300,14 @@ class Server:
 
             self.verifier.verify_timestamp(msg,
                                            get_timestamp() - constants.TIMESTAMP_GAP)
-            if msg.timestamp == usr.timestamp:
+            if msg.timestamp == usr.last_heartbeat_recv:
                 raise exception.InvalidTimeStampException()
             self.verifier.verify_signature(msg, usr.public_key)
 
             # Process Message
             msg = self.processor.process_sym_key(msg, usr.key)
             if msg.payload[1] == "HEARTBEAT":
-                usr.timestamp = msg.timestamp + constants.HEARTBEAT_TIMEOUT
+                usr.last_heartbeat_recv = msg.timestamp + constants.HEARTBEAT_TIMEOUT
         except exception.SecurityException as e:
             print str(e)
 
@@ -315,7 +317,7 @@ class Server:
             logged_out = []
             t1 = get_timestamp()
             for user in self.keychain.list_users().itervalues():
-                if user.timestamp is not None and get_timestamp() >= user.timestamp:
+                if user.last_heartbeat_recv is not None and get_timestamp() >= user.last_heartbeat_recv:
                     logged_out.append(user)
                     print "Logged out", user.username
 
@@ -342,3 +344,6 @@ def run():
         server.check_heartbeat_thread.join()
     except (exception.SecurityException, IOError) as e:
         print str(e)
+
+if __name__ == "__main__":
+    run()

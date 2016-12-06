@@ -27,7 +27,7 @@ class TextInterface:
             else:
                 print ("Unsuccessful login")
 
-    def start(self):
+    def show_menu(self):
         # After successful login, three commands are displayed to the user
         print "Enter a command:\n1. list\n2. send <USER> <MESSAGE>\n3. quit\n"
         while True:
@@ -36,7 +36,7 @@ class TextInterface:
             if userinput[0] == "list":
                 l = self.client.list()  # obtain the entire list of logged in clients
 
-                if l is None:  # server returned nothing
+                if l is None:  # List Failed
                     print "List Failed"
                     continue
 
@@ -64,9 +64,13 @@ def run():
             conf = config.get_client_config()  # read the client configuration
             txtint = TextInterface(conf)
             txtint.login()
-            txtint.start()
+            txtint.show_menu()
         else:
             raise exception.ConfigFileMissingException()  # No config file provided
     except (socket.error, IOError, exception.SecurityException) as e:
         print str(e)
     sys.exit(0)
+
+
+if __name__ == "__main__":
+    run()

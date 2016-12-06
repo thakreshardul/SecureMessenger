@@ -27,7 +27,7 @@ class Udp:
         # Used by send_recv_msg
         # A Waiter is a thread that calls send_recv_msg
         # It waits to get a return msg
-        self.msg_addr_for_waiter = ""  # Stores (msg,addr) for waiter
+        self.msg_addr_for_waiter = ""  # Stores response (msg,addr) for waiter
         self.cv_for_waiter = threading.Condition()  # Condition Variable for Waiter
         self.waiting = False  # Set if a waiter exists
 
@@ -54,13 +54,13 @@ class Udp:
         listener_thread.start()
 
     # Called By Waiter Thread
-    # It returns after timeout
+    # It returns after timeout if no message was received
     def recv(self, timeout):
         # It waits until woken or timeout expires
         self.waiting = True
         self.cv_for_waiter.wait(timeout)
 
-        # Checks recved message and decides whether timeout or not
+        # Checks received message and decides whether timeout or not happened
         self.waiting = False
         if self.msg_addr_for_waiter == "":
             self.cv_for_waiter.release()
@@ -84,7 +84,7 @@ class Udp:
                     cv.notify()
                     cv.release()
                     self.current_thread = (current_thread + 1) % self.num_threads
-                # or transfers to waiter's buffer
+                # or notifies waiter if any
                 else:
                     self.cv_for_waiter.acquire()
                     if self.waiting:

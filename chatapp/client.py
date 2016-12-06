@@ -18,17 +18,23 @@ class ChatClient:
         self.keychain = ClientKeyChain(
             open(constants.SERVER_PRIVATE_DER_FILE, 'rb'),
             open(constants.SERVER_PUBLIC_DER_FILE, 'rb'))
+
+        # Adding Server to KeyChain
         user = ClientUser()
         user.username = ""
         user.addr = self.saddr
         self.keychain.add_user(user)
         self.socket = udp.socket
+
+        # Message Related Objects
         self.msg_parser = MessageParser()
         self.converter = MessageConverter()
         self.verifier = MessageVerifer()
         self.processor = MessageProcessor()
+
         self.username = ""
         self.passhash = ""
+
         self.heartbeat_thread = threading.Thread(target=self.heartbeat)
         self.heartbeat_thread.daemon = True
         self.passwd_thread = None
@@ -47,6 +53,8 @@ class ChatClient:
 
         self.username = username
         self.passhash = ""
+
+        # Incase of retries so that no previous thread is running
         if self.passwd_thread is not None and self.passwd_thread.isAlive():
             self.passwd_thread.join()
         # Password hash is computed on a separate thread
@@ -54,6 +62,7 @@ class ChatClient:
                                               args=(password,))
         self.passwd_thread.daemon = True
         self.passwd_thread.start()
+
         # Generate a packet that is not signed nor encrypted
         msg = self.converter.nokey_nosign(Message(message_type['Login']))
         try:
@@ -114,6 +123,7 @@ class ChatClient:
                                            get_timestamp() - constants.TIMESTAMP_GAP)
             self.verifier.verify_signature(msg, self.keychain.server_pub_key)
             msg.payload = str_to_tuple(msg.payload)
+
             if msg.payload[1] == "LOGOUT":
                 usr = self.keychain.get_user_with_addr(
                     convert_bytes_to_addr(msg.payload[0]))
@@ -144,6 +154,7 @@ class ChatClient:
         nc = os.urandom(16)
         d = ord(msg.payload.difficulty)
         x = solve_puzzle(ns, nc, d)
+
         pub, priv = generate_dh_pair()
         n1 = os.urandom(16)
         self.keychain.server_dh_key = (priv, n1)
@@ -263,6 +274,8 @@ class ChatClient:
             # If key not present, contact server to get the public key
             if user is None:
                 user = self.__get_missing_user_with_addr(addr)
+                if user is None:
+                    raise exception.InvalidSendersAddressException()
 
             self.verifier.verify_timestamp(msg,
                                            get_timestamp() - constants.TIMESTAMP_GAP)
@@ -280,6 +293,8 @@ class ChatClient:
             if self.username != dest:
                 raise exception.InvalidUsernameException()
 
+            # After successful verification generate this client's DH contribution
+            # and send it to the initiator
             n2 = os.urandom(constants.NONCE_LENGTH)
             public_key, private_key = generate_dh_pair()
             key = derive_symmetric_key(private_key, gamodp, n1, n2)
@@ -291,8 +306,6 @@ class ChatClient:
 
             msg = self.converter.asym_key_with_sign(msg, user.public_key,
                                                     self.keychain.private_key)
-            # After successful verification generate this client's DH contribution
-            # and send it to the initiator
             send_msg(self.socket, user.addr, msg)
         except exception.SecurityException as e:
             print str(e)
@@ -307,10 +320,11 @@ class ChatClient:
             user = self.keychain.get_user_with_addr(addr)
             # sender's symmetric key is not present in the keychain
             if user is None:
-                # msg = Message(message_type["Reject"], payload=("Reject",))
-                # self.converter.sign(msg, self.keychain.private_key)
-                # send_msg(self.socket, addr, msg)
                 raise exception.InvalidUserException()
+
+            if addr != user.addr:
+                raise exception.InvalidSendersAddressException()
+
             # Check for replay
             self.verifier.verify_timestamp(msg, user.last_recv_msg)
             self.verifier.verify_signature(msg, user.public_key)
@@ -333,8 +347,11 @@ class ChatClient:
     # Contact server to get the public of the user
     def __get_missing_user_with_username(self, username):
         utuple = self.list(username)
-        if utuple is None:  # Malicious user caught!!!
+        if utuple is None:
             raise exception.ListFailedException()
+
+        if utuple == ():
+            return None
 
         if utuple[0] == username:
             user = ClientUser()
@@ -349,8 +366,13 @@ class ChatClient:
     # Contact server to get the public of the user
     def __get_missing_user_with_addr(self, addr):
         utuple = self.list(addr, is_ip=True)
-        if utuple is None:  # Malicious user caught!!!
-            exception.ListFailedException()
+
+        if utuple is None:
+            raise exception.ListFailedException()
+
+        if utuple == ():
+            return None
+
         paddr = convert_bytes_to_addr(utuple[1])
         if paddr == addr:
             user = ClientUser()
@@ -374,8 +396,10 @@ class ChatClient:
                                                 self.keychain.private_key)
         msg, addr = send_recv_msg(self.socket, udp, dest_user.addr, msg)
 
-        msg = self.msg_parser.parse_key_asym_sign(msg)
+        if addr != dest_user.addr:
+            raise exception.InvalidSendersAddressException()
 
+        msg = self.msg_parser.parse_key_asym_sign(msg)
         self.verifier.verify_timestamp(msg,
                                        get_timestamp() - constants.TIMESTAMP_GAP)
         self.verifier.verify_signature(msg, dest_user.public_key)
@@ -428,6 +452,8 @@ class ChatClient:
             # If not get user info from server
             if user is None:
                 user = self.__get_missing_user_with_username(destination)
+                if user is None:
+                    raise exception.InvalidUsernameException()
             # If yes, but key is not present, the set up the DH shared key
             if user.key is None:
                 self.__setup_client_shared_key(user)
@@ -441,12 +467,6 @@ class ChatClient:
                                                    self.keychain.private_key)
             msg, addr = send_recv_msg(self.socket, udp, user.addr, msg)
 
-            # if MessageParser.get_message_type(msg) == "Reject":
-            #     self.got_reject(msg, addr, user.public_key, user.addr)
-            #     user = self.keychain.get_user_with_username(destination)
-            #     self.keychain.remove_user(user)
-            #     # self.send(destination, message)
-            #     raise exception.SendFailedException()
             if MessageParser.get_message_type(msg) == "Accept":
                 self.got_accept(msg, addr, user.public_key, user.addr)
                 print "Sent Successfully"

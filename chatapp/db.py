@@ -51,7 +51,7 @@ class UserDatabase:
 
     def insert_user(self, uname, phash, salt):
         # This method is used for registering the user to application
-        # It should be used with the code in the main method only
+        # It should be used with the code in the add_user method only
         user_query_format = "INSERT INTO userInfo VALUES (?,?,?)"
         self.c.execute(user_query_format, [uname, sqlite3.Binary(phash),
                                            sqlite3.Binary(salt)])
@@ -76,3 +76,6 @@ def add_user():
             userdb.insert_user(username, pass_hash, salt)
     except sqlite3.IntegrityError:
         print "Adding same user twice"
+
+if __name__ == "__main__":
+    add_user()
