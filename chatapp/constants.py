@@ -10,11 +10,15 @@ AES_TAG_LENGTH = 16
 RSA_KEY_LENGTH = 2048
 TIMESTAMP_LENGTH = 4
 LEN_LENGTH = 2
-SEND_HEARTBEAT_TIMEOUT = 5
-HEARTBEAT_TIMEOUT = 10
+SEND_HEARTBEAT_TIMEOUT = 30
+HEARTBEAT_TIMEOUT = 60
 HEARTBEAT_PAUSE = 5
 
 TIMESTAMP_GAP = 5
+SOCKET_TIMEOUT = 5
+
+BUFFER_SIZE = 1000
+PUZZLE_TIMEOUT = 60
 
 DB_LOCATION = "user.db"
 CLIENT_CONFIG_FILE = "client_config.json"
@@ -54,8 +58,4 @@ message_dictionary = {
     13: "Heartbeat"
 }
 
-client_stats = {
-    "Not_Logged_In": 0,
-    "Logged_In": 1,
-    "Log_In_Failed": 2
-}
+
