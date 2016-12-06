@@ -6,6 +6,8 @@ import constants
 import exception
 
 
+# Converts a tuple to string by doing the following
+# (a, b, c) -> len(a)+a+len(b)+b+len(c)+c
 def tuple_to_str(tuple):
     string = ""
     for param in tuple:
@@ -16,6 +18,7 @@ def tuple_to_str(tuple):
     return string
 
 
+# Converts the above string back to a tuple
 def str_to_tuple(string):
     pl = []
     try:
@@ -31,22 +34,27 @@ def str_to_tuple(string):
         raise exception.InvalidMessageException()
 
 
+# Sends a message to the destination address using given socket
 def send_msg(sender_socket, dest_addr, msg):
     sender_socket.sendto(str(msg), dest_addr)
 
 
+# Sends Like above, but also waits for return msg
+# Raises socket.timeout if it doesnt come
 def send_recv_msg(sender_socket, recv_udp, dest_addr, msg):
     recv_udp.cv_for_waiter.acquire()
     sender_socket.sendto(str(msg), dest_addr)
-    return recv_udp.recv(5)
+    return recv_udp.recv(constants.SOCKET_TIMEOUT)
 
 
+# Convert (ip,port) to byte string
 def convert_addr_to_bytes(addr):
     ip = socket.inet_aton(addr[0])
     port = struct.pack("!H", addr[1])
     return ip + port
 
 
+# Convert byte string to (ip,port)
 def convert_bytes_to_addr(string):
     try:
         ip = string[:4]
@@ -56,5 +64,6 @@ def convert_bytes_to_addr(string):
         raise exception.InvalidMessageException()
 
 
+# Returns Timestamp as Long
 def get_timestamp():
     return long(time.time())

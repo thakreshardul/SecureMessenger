@@ -1,6 +1,9 @@
+# This file has all the exceptions used in our application
+# The Strings in __str__ serve as when they will be raised
+
+
 class SecurityException(Exception):
-    def __init__(self):
-        pass
+    pass
 
 
 class InvalidSolutionException(SecurityException):
@@ -34,9 +37,6 @@ class InvalidCertificateException(SecurityException):
 
 
 class InvalidSignatureException(SecurityException):
-    def __init__(self):
-        pass
-
     def __str__(self):
         return "Signature of Packet is Invalid"
 
@@ -58,7 +58,7 @@ class UserAlreadyLoggedInException(SecurityException):
 
 class InvalidMessageLengthException(SecurityException):
     def __str__(self):
-        return "Message is Too Long"
+        return "Invalid Message Length"
 
 
 class InvalidMessageTypeException(SecurityException):
