@@ -4,18 +4,15 @@ import sys
 
 import client
 import config
-
-if len(sys.argv) == 2:
-    config.load(sys.argv[1])
-else:
-    config.load()
-conf = config.get_config()
+import exception
 
 
 class TextInterface:
-    def __init__(self):
-        self.client = client.ChatClient((conf.serverip, conf.serverport))
+    def __init__(self, conf):
+        self.client = client.ChatClient(
+            (conf.serverip, conf.serverport))
         client.udp.start(self.client, conf.clientip, conf.clientport, 1)
+
 
     def login(self):
         while True:
@@ -51,9 +48,13 @@ class TextInterface:
 
 if __name__ == "__main__":
     try:
-        txtint = TextInterface()
+        if len(sys.argv) != 2:
+            raise exception.ConfigFileMissingException()
+        config.load(sys.argv[1])
+        conf = config.get_config()
+        txtint = TextInterface(conf)
         txtint.login()
         txtint.start()
-    except (socket.error, IOError) as e:
+    except (socket.error, IOError, exception.SecurityException) as e:
         print str(e)
     sys.exit(0)

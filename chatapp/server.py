@@ -1,6 +1,7 @@
 import threading
 import time
-
+import config
+import sys
 from chatapp.utilities import send_msg, convert_addr_to_bytes, \
     convert_bytes_to_addr
 from constants import message_type
@@ -9,6 +10,7 @@ from keychain import ServerKeyChain
 from message import *
 from network import Udp
 from user import ServerUser
+from ds import Solution
 
 udp = Udp()
 
@@ -207,6 +209,8 @@ class Server:
                 else:
                     user = self.keychain.get_user_with_addr(
                         convert_bytes_to_addr(request[1]))
+                if user is None:
+                    raise exception.InvalidUserException()
                 username = user.username
                 pk = convert_public_key_to_bytes(user.public_key)
                 payload = (username, convert_addr_to_bytes(user.addr), pk)
@@ -257,6 +261,14 @@ class Server:
 
 
 if __name__ == "__main__":
-    server = Server()
-    udp.start(server, "127.0.0.1", 6000, 5)
-    server.check_heartbeat_thread.join()
+    try:
+        if len(sys.argv) == 2:
+            config.load(sys.argv[1])
+        else:
+            raise exception.ConfigFileMissingException()
+        conf = config.get_config()
+        server = Server()
+        udp.start(server, conf.serverip, conf.serverport, 5)
+        server.check_heartbeat_thread.join()
+    except exception.SecurityException as e:
+        print str(e)

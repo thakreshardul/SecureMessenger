@@ -89,3 +89,8 @@ class InvalidPasswordException(SecurityException):
 class InvalidMessageException(SecurityException):
     def __str__(self):
         return "Invalid Message was received"
+
+
+class ConfigFileMissingException(SecurityException):
+    def __str__(self):
+        return "Config file was not given"
