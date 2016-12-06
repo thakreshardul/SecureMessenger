@@ -258,7 +258,7 @@ class ChatClient:
     def got_sender_client_dh(self, msg, addr):
         try:
             msg = self.msg_parser.parse_key_asym_sign(msg)
-            # Check if user's sym key is already present
+            # Check if user is already present in keychain
             user = self.keychain.get_user_with_addr(addr)
             # If key not present, contact server to get the public key
             if user is None:
