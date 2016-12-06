@@ -54,12 +54,15 @@ def generate_rsa_pair():
 
 
 def load_rsa_pair(priv_der, pub_der):
-    private_key = serialization.load_der_private_key(priv_der.read(),
-                                                     None,
-                                                     default_backend())
-    public_key = serialization.load_der_public_key(pub_der.read(),
-                                                   default_backend())
-    return public_key, private_key
+    try:
+        private_key = serialization.load_der_private_key(priv_der.read(),
+                                                         None,
+                                                         default_backend())
+        public_key = serialization.load_der_public_key(pub_der.read(),
+                                                       default_backend())
+        return public_key, private_key
+    except ValueError:
+        raise IOError("Wrong Key Files")
 
 
 # Should be used to get symmetric key like K(AS) or K(AB)
@@ -124,13 +127,16 @@ def encrypt_key(public_key, key):
 
 
 def decrypt_key(private_key, ciphertext):
-    plaintext = private_key.decrypt(
-        ciphertext,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA512()),
-            algorithm=hashes.SHA512(),
-            label=None))
-    return plaintext
+    try:
+        plaintext = private_key.decrypt(
+            ciphertext,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA512()),
+                algorithm=hashes.SHA512(),
+                label=None))
+        return plaintext
+    except ValueError:
+        raise exception.InvalidMessageException()
 
 
 def sign_stuff(private_key, stuff):
@@ -160,7 +166,10 @@ def convert_public_key_to_bytes(key):
 
 
 def convert_bytes_to_public_key(bytes):
-    return serialization.load_der_public_key(bytes, backend=default_backend())
+    try:
+        return serialization.load_der_public_key(bytes, backend=default_backend())
+    except ValueError:
+        raise exception.InvalidMessageException()
 
 
 def __is_first_k_zeros(str, k):

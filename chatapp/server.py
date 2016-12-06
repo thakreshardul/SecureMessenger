@@ -270,5 +270,5 @@ if __name__ == "__main__":
         server = Server()
         udp.start(server, conf.serverip, conf.serverport, 5)
         server.check_heartbeat_thread.join()
-    except exception.SecurityException as e:
+    except (exception.SecurityException,IOError) as e:
         print str(e)
