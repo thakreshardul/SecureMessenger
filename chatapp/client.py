@@ -1,3 +1,4 @@
+"""This file implements the client side code"""
 import time
 
 from chatapp.keychain import ClientKeyChain
@@ -32,34 +33,41 @@ class ChatClient:
         self.heartbeat_thread.daemon = True
         self.passwd_thread = None
 
+    # Generates the hash of password
     def compute_hash(self, password):
         self.passhash = generate_client_hash_password(self.username, password)
 
     def login(self, username, password):
 
-        if len(username) == 0:
+        if len(username) == 0:  # blank username provided
             raise exception.InvalidUsernameException()
 
-        if len(password) == 0:
+        if len(password) == 0:  # blank username provided
             raise exception.InvalidPasswordException()
 
         self.username = username
         self.passhash = ""
         if self.passwd_thread is not None and self.passwd_thread.isAlive():
             self.passwd_thread.join()
+        # Password hash is computed on a separate thread
         self.passwd_thread = threading.Thread(target=self.compute_hash,
                                               args=(password,))
         self.passwd_thread.daemon = True
         self.passwd_thread.start()
+        # Generate a packet that is not signed nor encrypted
         msg = self.converter.nokey_nosign(Message(message_type['Login']))
         try:
+            # Send login and get Puzzle from the server
             msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
+            # Compute solution to the puzzle
             msg = self.find_solution(msg, addr)
+            # Send solution and get Server side DH part of the symmetric key
             msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
-
+            # Compute the Client side DH and the symmetric key and encrypt password with symmetric key
             msg = self.server_dh(msg, addr)
+            # Send password hash encrypted with symmetric key to the server and wait for accept or reject
             msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
-
+            # process accept or reject fro the server
             self.got_login_result(msg, addr)
             return True
         except socket.timeout:
@@ -69,6 +77,7 @@ class ChatClient:
             print str(e)
             return False
 
+    # Handles the logging out of the client
     def logout(self):
         try:
             msg = Message(message_type['Logout'],
@@ -77,6 +86,7 @@ class ChatClient:
 
             msg = self.converter.sym_key_with_sign(msg, usr.key,
                                                    self.keychain.private_key)
+            # Send logout packet and wait for Accept
             msg, addr = send_recv_msg(self.socket, udp, self.saddr, msg)
             if MessageParser.get_message_type(msg) == "Accept":
                 self.got_accept(msg, addr, self.keychain.server_pub_key,
@@ -90,6 +100,8 @@ class ChatClient:
             print str(e)
             return False
 
+    # Handles the broadcast message from the server about logging out of a
+    # client from the system
     @udp.endpoint("Logout")
     def got_broadcast(self, msg, addr):
         try:
@@ -112,6 +124,7 @@ class ChatClient:
         except exception.SecurityException as e:
             print str(e)
 
+    # computes the solution to the puzzle
     def find_solution(self, msg, addr):
 
         if MessageParser.get_message_type(msg) != "Puzzle":
@@ -141,6 +154,7 @@ class ChatClient:
         self.converter.asym_key(msg, self.keychain.server_pub_key)
         return msg
 
+    # After getting server DH part, compute client DH and the symmetric key
     def server_dh(self, msg, addr):
 
         if addr != self.saddr:
@@ -182,6 +196,7 @@ class ChatClient:
         msg.timestamp = ts
         return msg
 
+    # Process Accept or reject from the server
     def got_login_result(self, msg, addr):
         if MessageParser.get_message_type(msg) == "Accept":
             self.got_accept(msg, addr, self.keychain.server_pub_key, self.saddr)
@@ -193,6 +208,7 @@ class ChatClient:
         else:
             raise exception.InvalidMessageTypeException()
 
+    # Accept message payload should have OK as the payload
     def got_accept(self, msg, addr, pk, aaddr):
 
         if addr != aaddr:
@@ -206,6 +222,7 @@ class ChatClient:
         if msg.payload[0] != "OK":
             raise exception.InvalidPayloadException()
 
+    # Reject message payload should have Reject as the payload
     def got_reject(self, msg, addr, pk, aaddr):
 
         if addr != aaddr:
@@ -219,6 +236,7 @@ class ChatClient:
         if msg.payload[0] != "Reject":
             raise exception.InvalidPayloadException()
 
+    # Response of the list command send to the server to list all the clients
     def got_list_response(self, msg, addr):
         if MessageParser.get_message_type(msg) != "List":
             raise exception.InvalidMessageTypeException()
@@ -234,12 +252,15 @@ class ChatClient:
         msg = self.processor.process_sym_key(msg, server.key)
         return msg.payload
 
+    # Start of the Message protocol after send command, the initiator sends its,
+    # DH contribution
     @udp.endpoint("Sender_Client_DH")
     def got_sender_client_dh(self, msg, addr):
         try:
             msg = self.msg_parser.parse_key_asym_sign(msg)
-
+            # Check if user's sym key is already present
             user = self.keychain.get_user_with_addr(addr)
+            # If key not present, contact server to get the public key
             if user is None:
                 user = self.__get_missing_user_with_addr(addr)
 
@@ -252,7 +273,7 @@ class ChatClient:
             sender, dest, n1, gamodp = msg.payload
 
             gamodp = convert_bytes_to_public_key(gamodp)
-
+            # sender and the user identity in the message differ
             if sender != user.username:
                 raise exception.InvalidUsernameException()
 
@@ -270,10 +291,13 @@ class ChatClient:
 
             msg = self.converter.asym_key_with_sign(msg, user.public_key,
                                                     self.keychain.private_key)
+            # After successful verification generate this client's DH contribution
+            # and send it to the initiator
             send_msg(self.socket, user.addr, msg)
         except exception.SecurityException as e:
             print str(e)
 
+    # Process a message encrypted with symmetric key
     @udp.endpoint("Message")
     def got_message(self, msg, addr):
         try:
@@ -281,13 +305,13 @@ class ChatClient:
                 raise exception.InvalidMessageTypeException()
             msg = self.msg_parser.parse_key_sym_sign(msg)
             user = self.keychain.get_user_with_addr(addr)
-
+            # sender's symmetric key is not present in the keychain
             if user is None:
                 # msg = Message(message_type["Reject"], payload=("Reject",))
                 # self.converter.sign(msg, self.keychain.private_key)
                 # send_msg(self.socket, addr, msg)
                 raise exception.InvalidUserException()
-
+            # Check for replay
             self.verifier.verify_timestamp(msg, user.last_recv_msg)
             self.verifier.verify_signature(msg, user.public_key)
 
@@ -297,6 +321,7 @@ class ChatClient:
                 raise exception.InvalidUsernameException()
 
             user.last_recv_msg = msg.timestamp
+            # ACK for message
             msg = Message(message_type["Accept"], payload=("OK",))
             msg = self.converter.sign(msg, self.keychain.private_key)
             send_msg(self.socket, addr, msg)
@@ -305,9 +330,10 @@ class ChatClient:
         except exception.SecurityException as e:
             print str(e)
 
+    # Contact server to get the public of the user
     def __get_missing_user_with_username(self, username):
         utuple = self.list(username)
-        if utuple is None:
+        if utuple is None:  # Malicious user caught!!!
             raise exception.ListFailedException()
 
         if utuple[0] == username:
@@ -320,9 +346,10 @@ class ChatClient:
         else:
             raise exception.InvalidUsernameException()
 
+    # Contact server to get the public of the user
     def __get_missing_user_with_addr(self, addr):
         utuple = self.list(addr, is_ip=True)
-        if utuple is None:
+        if utuple is None:  # Malicious user caught!!!
             exception.ListFailedException()
         paddr = convert_bytes_to_addr(utuple[1])
         if paddr == addr:
@@ -335,6 +362,7 @@ class ChatClient:
         else:
             raise exception.InvalidSendersAddressException()
 
+    # Generate a the client shared symmetric key used for further communication
     def __setup_client_shared_key(self, dest_user):
         public_key, private_key = generate_dh_pair()
         n1 = os.urandom(constants.NONCE_LENGTH)
@@ -366,6 +394,7 @@ class ChatClient:
         key = derive_symmetric_key(private_key, gbmodp, n1, n2)
         dest_user.key = key
 
+    # The user enters list command.
     def list(self, username="*", is_ip=False):
         try:
             if is_ip:
@@ -388,16 +417,18 @@ class ChatClient:
             print str(e)
             return None
 
+    # send the message to a specific client
     def send(self, destination, message):
         try:
 
             if len(destination) == 0:
                 raise exception.InvalidUsernameException()
-
+            # Checks if user already communicated in the past
             user = self.keychain.get_user_with_username(destination)
+            # If not get user info from server
             if user is None:
                 user = self.__get_missing_user_with_username(destination)
-
+            # If yes, but key is not present, the set up the DH shared key
             if user.key is None:
                 self.__setup_client_shared_key(user)
 
@@ -427,6 +458,8 @@ class ChatClient:
         except exception.SecurityException as e:
             print str(e)
 
+    # Generate periodic heartbeats and forward to server indicating the client
+    # is still in the network
     def heartbeat(self):
         while True:
             msg = Message(message_type["Heartbeat"], payload=(self.username,

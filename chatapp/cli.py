@@ -1,3 +1,4 @@
+"""This is the text interface at the client side"""
 import getpass
 import socket
 import sys
@@ -9,10 +10,13 @@ import exception
 
 class TextInterface:
     def __init__(self, conf):
+        # configure the server address from config file
         self.client = client.ChatClient((conf.serverip, conf.serverport))
+        # start the client on the address specified in the config file
         client.udp.start(self.client, conf.clientip, conf.clientport, 1)
 
     def login(self):
+        # Loop until the user is logged in to the application
         while True:
             usernm = raw_input("Enter your user name:\n")
             passwd = getpass.getpass("Enter your password:\n")
@@ -24,44 +28,45 @@ class TextInterface:
                 print ("Unsuccessful login")
 
     def start(self):
+        # After successful login, three commands are displayed to the user
         print "Enter a command:\n1. list\n2. send <USER> <MESSAGE>\n3. quit\n"
         while True:
             command = raw_input()
-            userinput = command.split(" ", 2)
+            userinput = command.split(" ", 2)  # send user has at most 3 args
             if userinput[0] == "list":
-                l = self.client.list()
+                l = self.client.list()  # obtain the entire list of logged in clients
 
-                if l is None:
+                if l is None:  # server returned nothing
                     print "List Failed"
                     continue
 
-                if len(l) > 0:
+                if len(l) > 0:  # More that 1 user logged in
                     print " ".join(l)
-                else:
+                else:  # Only one user i.e. self logged in to the system
                     print "Only you are logged in"
             elif userinput[0] == "send":
-                if len(userinput) == 3:
+                if len(userinput) == 3:  # there has to be three parameters for send
                     self.client.send(userinput[1], userinput[2])
                 else:
                     print "Give user and message also"
             elif userinput[0] == "quit":
-                self.client.logout()
+                self.client.logout()  # Send the logout message to server and get back OK
                 print ("Quitting the application")
                 break
-            else:
+            else:  # Any unsupported command
                 print ("Enter correct command")
 
 
 if __name__ == "__main__":
     try:
         if len(sys.argv) == 2:
-            config.load_client(sys.argv[1])
-            conf = config.get_client_config()
+            config.load_client(sys.argv[1])  # load the config file
+            conf = config.get_client_config()  # read the client configuration
             txtint = TextInterface(conf)
             txtint.login()
             txtint.start()
         else:
-            raise exception.ConfigFileMissingException()
+            raise exception.ConfigFileMissingException()  # No config file provided
     except (socket.error, IOError, exception.SecurityException) as e:
         print str(e)
     sys.exit(0)

@@ -39,20 +39,19 @@ def generate_server_hash_password(username, password, salt):
 
 
 # Generated DH Pair using Elliptic Curve Cryptography
-# Better check correct security parameter
 def generate_dh_pair():
     private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
     pub = private_key.public_key()
     return pub, private_key
 
-
+# Generate private and public keys of size 2048
 def generate_rsa_pair():
     private_key = rsa.generate_private_key(public_exponent=65537,
                                            key_size=2048,
                                            backend=default_backend())
     return private_key.public_key(), private_key
 
-
+# Serialise and return the private and public keys
 def load_rsa_pair(priv_der, pub_der):
     try:
         private_key = serialization.load_der_private_key(priv_der.read(),
@@ -96,15 +95,15 @@ def verify_puzzle(ns, nc, x, d):
     if not __is_first_k_zeros(h.finalize(), d):
         raise exception.InvalidSolutionException()
 
-
+# Encrypt the payload using symmetric key using AES and GCM
 def encrypt_payload(skey, iv, payload):
     encryptor = ciphers.Cipher(algorithms.AES(skey), mode=modes.GCM(iv),
                                backend=default_backend()).encryptor()
-    encryptor.authenticate_additional_data("")  # Should Think About This
+    encryptor.authenticate_additional_data("")
     ciphertext = encryptor.update(payload) + encryptor.finalize()
     return encryptor.tag, ciphertext
 
-
+# Decrypt the payload using symmetric key. Here, authentication tag is required
 def decrypt_payload(skey, iv, tag, payload):
     try:
         decryptor = ciphers.Cipher(algorithms.AES(skey), mode=modes.GCM(iv, tag),
@@ -115,7 +114,7 @@ def decrypt_payload(skey, iv, tag, payload):
     except InvalidTag:
         raise exception.InvalidTagException
 
-
+# Encrypts the symmetric key using sender's public key. RSA with OAEP is used
 def encrypt_key(public_key, key):
     ciphertext = public_key.encrypt(
         key,
@@ -125,7 +124,7 @@ def encrypt_key(public_key, key):
             label=None))
     return ciphertext
 
-
+# Decrypt the symmetric key using private key. RSA with OAEP is used
 def decrypt_key(private_key, ciphertext):
     try:
         plaintext = private_key.decrypt(
@@ -138,7 +137,7 @@ def decrypt_key(private_key, ciphertext):
     except ValueError:
         raise exception.InvalidMessageException()
 
-
+# Generates signature using private key
 def sign_stuff(private_key, stuff):
     signature = private_key.sign(
         stuff,
@@ -147,7 +146,7 @@ def sign_stuff(private_key, stuff):
             salt_length=padding.PSS.MAX_LENGTH), hashes.SHA512())
     return signature
 
-
+# Verifies the signature using public
 def verify_sign(sign, stuff, public_key):
     try:
         public_key.verify(
@@ -171,7 +170,7 @@ def convert_bytes_to_public_key(bytes):
     except ValueError:
         raise exception.InvalidMessageException()
 
-
+# Used to solve the puzzle.
 def __is_first_k_zeros(str, k):
     first_k = str[:k]
     for ch in first_k:
@@ -199,9 +198,3 @@ def __salt_and_hash(str, salt):
     h.update(salt)
     h.update(str)
     return h.finalize()
-
-
-if __name__ == "__main__":
-    private_key, pub = generate_dh_pair()
-    print private_key.public_bytes(encoding=serialization.Encoding.DER,
-                                   format=serialization.PublicFormat.SubjectPublicKeyInfo)
